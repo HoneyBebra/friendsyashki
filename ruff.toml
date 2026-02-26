@@ -1,0 +1,38 @@
+line-length = 100
+indent-width = 4
+
+exclude = [
+    ".env",
+    ".git",
+    "__pycache__",
+    "venv/",
+    "env/",
+    ".venv/",
+    "migration",
+    "user_pb2.py",
+    "user_pb2_grpc.py",
+]
+
+[lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "BLE",  # flake8-blind-except
+    "A",  # flake8-builtins
+    "T20",  # flake8-print
+]
+ignore = [
+    "B008",  # do not perform function calls in argument defaults
+    "N818",  # Exceptions should be named with an Error suffix
+]
+
+[lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-local-folder = ["src", "tests"]
+split-on-trailing-comma = false

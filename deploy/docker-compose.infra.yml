@@ -1,0 +1,10 @@
+services:
+  nginx_gateway:
+    container_name: nginx_gateway
+    image: nginx:1.25.5
+    restart: always
+    volumes:
+      - ./infra/configs/nginx_gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/configs/nginx_gateway/site.conf:/etc/nginx/conf.d/site.conf:ro
+    ports:
+      - "80:80"
