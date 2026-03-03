@@ -5,3 +5,7 @@ pydantic==2.11
 pydantic-settings==2.10.1
 python-dotenv==1.0.1
 orjson==3.11.3
+SQLAlchemy==2.0.43
+alembic==1.16.4
+asyncpg==0.30.0
+greenlet==3.2.3

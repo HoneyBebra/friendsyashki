@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — каркас реализован (TASK-001 ✅), в разработке (TASK-002..011)
+- `messenger` — БД + модели + репозитории (TASK-001 ✅, TASK-002 ✅), в разработке (TASK-003..011)
 
 ---
 
@@ -97,7 +97,7 @@ friendsyashki/
 ├── requirements-dev.txt          # Dev-зависимости
 │
 ├── auth/                         # Сервис аутентификации ✅ реализован
-├── messenger/                    # Сервис мессенджера 🚧 каркас готов (v0.1.0)
+├── messenger/                    # Сервис мессенджера 🚧 DB + models ready (v0.1.1)
 └── deploy/                       # Единый docker-compose для всего стека
 ```
 
@@ -342,27 +342,89 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (v0.1.0 — каркас)
+## 5. Сервис `messenger` (v0.1.1)
 
-Каркас сервиса реализован (TASK-001). Текущий функционал: health endpoint.
-
-### 5.0 Текущее состояние (v0.1.0)
+### 5.0 Текущее состояние (v0.1.1)
 
 - FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
-- Конфигурация через `pydantic-settings` из `.env`
-- Docker-интеграция: `Dockerfile` + `docker-compose.yml` (messenger + nginx_messenger)
+- Конфигурация через `pydantic-settings` из `.env` (включая postgres_*)
+- Docker-интеграция: `Dockerfile` + `docker-compose.yml` (messenger + postgres_messenger + nginx_messenger)
 - Интегрирован в `deploy/docker-compose.yml` и nginx gateway
-- Структура директорий подготовлена для дальнейшей разработки (db, models, repositories, services, ws, gRPC)
-- Тесты: `pytest` + `httpx` (async ASGI transport)
+- PostgreSQL: async engine (`asyncpg`), session factory, `get_session` dependency
+- Alembic: миграции в `migration/versions/`, async env.py
+- 4 таблицы: `dialogs`, `dialog_participants`, `messages`, `message_statuses`
+- Репозитории: `DialogsRepository`, `MessagesRepository` (абстрактные + конкретные)
+- Тесты: `pytest` + `httpx` + `testcontainers` (13 тестов: health, миграции, CRUD)
 
-### Планируемые таблицы
+### 5.1 Переменные окружения
 
-| Таблица | Описание |
+Файл: `messenger/.env` (читается через `pydantic-settings`)
+
+| Переменная | Описание |
 |---|---|
-| `dialogs` | Диалоги |
-| `dialog_participants` | Участники диалога |
-| `messages` | Сообщения |
-| `message_statuses` | Статусы: `sent`, `delivered`, `read` |
+| `APP_NAME` | Название приложения |
+| `APP_DESCRIPTION` | Описание приложения |
+| `APP_VERSION` | Версия приложения |
+| `API_V1_PREFIX` | Префикс API (default: `/messenger/api/v1`) |
+| `POSTGRES_USER` | Пользователь PostgreSQL |
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL |
+| `POSTGRES_DB` | Имя базы данных |
+| `POSTGRES_HOST` | Хост PostgreSQL |
+| `POSTGRES_PORT` | Порт PostgreSQL |
+| `POSTGRES_ECHO` | Логировать SQL-запросы (bool, default: false) |
+
+### 5.2 База данных
+
+#### PostgreSQL (`db/postgres.py`)
+
+Аналогично auth: `create_async_engine` с `pool_pre_ping`, `pool_recycle=3600`, TCP keepalive.
+Dependency `get_session()` — async generator с rollback при ошибке.
+Engine dispose в lifespan при shutdown.
+
+#### Модели
+
+| Таблица | Модель | Описание |
+|---|---|---|
+| `dialogs` | `Dialog` | `id` (UUID PK), `type` (enum: direct/group), `title`, `created_at`, `updated_at` |
+| `dialog_participants` | `DialogParticipant` | `id` (UUID PK), `dialog_id` (FK), `user_id`, `joined_at`, `created_at`, `updated_at` |
+| `messages` | `Message` | `id` (UUID PK), `dialog_id` (FK), `sender_id`, `text`, `client_message_id` (unique), `created_at`, `updated_at` |
+| `message_statuses` | `MessageStatus` | `id` (UUID PK), `message_id` (FK), `user_id`, `status` (enum: sent/delivered/read), `created_at`, `updated_at` |
+
+Enum-ы: `DialogType` (direct, group), `MessageStatusEnum` (sent, delivered, read) — хранятся как VARCHAR (`native_enum=False`).
+
+Relationship-ы: `Dialog ↔ DialogParticipant` (selectin), `Dialog ↔ Message` (noload), `Message ↔ MessageStatus` (noload).
+
+#### Миграции
+
+| Ревизия | Описание |
+|---|---|
+| `001` | Начальная: 4 таблицы, индексы, FK с CASCADE |
+
+Команды:
+```bash
+cd messenger
+alembic upgrade head
+alembic downgrade -1
+```
+
+#### Репозитории
+
+| Репозиторий | Методы |
+|---|---|
+| `DialogsRepository` | `create`, `get_by_id`, `get_user_dialogs`, `add_participant` |
+| `MessagesRepository` | `create`, `get_by_id`, `get_by_dialog` (с пагинацией), `set_status` |
+
+Абстрактные базы в `repositories/base/`, конкретные реализации в `repositories/`.
+
+### 5.3 Тесты
+
+| Файл | Тесты |
+|---|---|
+| `test_health.py` | health endpoint → 200 |
+| `test_migrations.py` | upgrade на чистой БД, idempotent re-run |
+| `test_repositories.py` | CRUD: dialogs (create, get_by_id, not_found, participants), messages (create, get_by_id, get_by_dialog, pagination, set_status) |
+
+Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions.
 
 ### Планируемый API
 

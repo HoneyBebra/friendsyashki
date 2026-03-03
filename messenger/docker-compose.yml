@@ -6,6 +6,21 @@ services:
     env_file:
       - .env
     build: .
+    depends_on:
+      - postgres_messenger
+    volumes:
+      - ./migration/versions:/opt/app/migration/versions
+
+  postgres_messenger:
+    image: postgres:17.4
+    container_name: postgres_messenger
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./infra/volumes/postgres_messenger:/var/lib/postgresql/data
+    restart: unless-stopped
 
   nginx_messenger:
     container_name: nginx_messenger

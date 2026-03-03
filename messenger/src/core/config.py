@@ -22,6 +22,24 @@ class Settings(BaseSettings):
     app_description: str
     app_version: str
 
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    postgres_host: str
+    postgres_port: str
+    postgres_echo: bool = False
+
+    @property
+    def postgres_dsn(self) -> str:
+        return (
+            f"postgresql+asyncpg://"
+            f"{self.postgres_user}:"
+            f"{self.postgres_password}@"
+            f"{self.postgres_host}:"
+            f"{self.postgres_port}/"
+            f"{self.postgres_db}"
+        )
+
 
 @lru_cache
 def get_settings() -> Settings:

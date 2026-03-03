@@ -8,11 +8,13 @@ from fastapi.responses import ORJSONResponse
 from src.api.v1.health import router as health_router
 from src.core.config import settings
 from src.core.logger import LOGGING
+from src.db.postgres import engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
+    await engine.dispose()
 
 
 app = FastAPI(

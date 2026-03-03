@@ -13,7 +13,7 @@
      - `GET /health` -> `200`;
      - сервис поднимается в docker без ошибок.
 
-2. **TASK-002 | Версия `v0.1.1`**
+2. **TASK-002 | Версия `v0.1.1`** ✅
    - Что делаем: подключить PostgreSQL + Alembic, создать базовые миграции (`dialogs`, `dialog_participants`, `messages`, `message_statuses`).
    - Тесты:
      - миграции применяются на чистой БД;
