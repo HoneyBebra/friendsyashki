@@ -6,5 +6,6 @@ services:
     volumes:
       - ./infra/configs/nginx_gateway/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/configs/nginx_gateway/site.conf:/etc/nginx/conf.d/site.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"

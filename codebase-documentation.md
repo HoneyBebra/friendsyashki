@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — запланирован (TASK-001..011), код отсутствует
+- `messenger` — каркас реализован (TASK-001 ✅), в разработке (TASK-002..011)
 
 ---
 
@@ -97,7 +97,7 @@ friendsyashki/
 ├── requirements-dev.txt          # Dev-зависимости
 │
 ├── auth/                         # Сервис аутентификации ✅ реализован
-├── messenger/                    # Сервис мессенджера 🚧 не реализован
+├── messenger/                    # Сервис мессенджера 🚧 каркас готов (v0.1.0)
 └── deploy/                       # Единый docker-compose для всего стека
 ```
 
@@ -342,9 +342,18 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (запланирован)
+## 5. Сервис `messenger` (v0.1.0 — каркас)
 
-Сервис **не реализован**. Архитектура зеркалирует `auth/`.
+Каркас сервиса реализован (TASK-001). Текущий функционал: health endpoint.
+
+### 5.0 Текущее состояние (v0.1.0)
+
+- FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
+- Конфигурация через `pydantic-settings` из `.env`
+- Docker-интеграция: `Dockerfile` + `docker-compose.yml` (messenger + nginx_messenger)
+- Интегрирован в `deploy/docker-compose.yml` и nginx gateway
+- Структура директорий подготовлена для дальнейшей разработки (db, models, repositories, services, ws, gRPC)
+- Тесты: `pytest` + `httpx` (async ASGI transport)
 
 ### Планируемые таблицы
 
@@ -385,7 +394,7 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 Локальный стек для разработки: `auth`, `postgres`, `redis`, `nginx_auth`.
 
 ### `deploy/docker-compose.yml`
-Включает `auth/docker-compose.yml` + `deploy/docker-compose.infra.yml`.
+Включает `auth/docker-compose.yml` + `messenger/docker-compose.yml` + `deploy/docker-compose.infra.yml`.
 
 ### `deploy/docker-compose.infra.yml`
 Только Nginx gateway (`nginx:1.25.5`) на порту `80`.

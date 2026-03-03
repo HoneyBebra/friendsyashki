@@ -1,3 +1,4 @@
+import base64
 import hashlib
 
 from cryptography.fernet import Fernet
@@ -7,7 +8,19 @@ from src.core.config import settings
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"])
 
-fernet = Fernet(settings.encryption_user_data_secret_key)
+
+def _build_fernet(secret: str) -> Fernet:
+    """
+    Accept either a valid Fernet key or any passphrase-like secret.
+    """
+    try:
+        return Fernet(secret.encode())
+    except ValueError:
+        derived_key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+        return Fernet(derived_key)
+
+
+fernet = _build_fernet(settings.encryption_user_data_secret_key)
 
 
 def hash_password(password: str) -> str:

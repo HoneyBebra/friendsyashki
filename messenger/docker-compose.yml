@@ -1,0 +1,19 @@
+services:
+  messenger:
+    image: messenger
+    container_name: messenger
+    restart: always
+    env_file:
+      - .env
+    build: .
+
+  nginx_messenger:
+    container_name: nginx_messenger
+    image: nginx:1.25.5
+    restart: always
+    depends_on:
+      - messenger
+    volumes:
+      - ./infra/configs/nginx_messenger/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/configs/nginx_messenger/site.conf:/etc/nginx/conf.d/site.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
