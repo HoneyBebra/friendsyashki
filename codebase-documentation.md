@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — БД + модели + репозитории + auth dependency (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅), в разработке (TASK-004..011)
+- `messenger` — БД + модели + репозитории + auth dependency + dialogs endpoint (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅), в разработке (TASK-005..011)
 
 ---
 
@@ -245,23 +245,18 @@ Proto-контракт (`auth/src/gRPC/protos/user.proto`):
 ```protobuf
 service User {
   rpc GetUserInfoByToken (GetUserInfoByTokenRequest) returns (GetUserInfoByTokenResponse);
+  rpc GetUserByLogin (GetUserByLoginRequest) returns (GetUserByLoginResponse);
 }
 
 message GetUserInfoByTokenRequest  { string access_token = 1; }
 message GetUserInfoByTokenResponse { string id = 1; }
+message GetUserByLoginRequest      { string login = 1; }
+message GetUserByLoginResponse     { string id = 1; }
 ```
 
-Использование из `messenger` (планируется):
-
-```python
-# В messenger: gRPC-клиент для идентификации пользователя
-channel = grpc.aio.insecure_channel("auth:50051")
-stub = UserStub(channel)
-response = await stub.GetUserInfoByToken(
-    GetUserInfoByTokenRequest(access_token=token)
-)
-user_id = response.id
-```
+Методы:
+- `GetUserInfoByToken` — валидация access token, возвращает user_id. Используется в auth dependency.
+- `GetUserByLogin` — поиск пользователя по логину, возвращает user_id. Используется при создании диалога (TASK-004). Возвращает `NOT_FOUND` если пользователь не найден.
 
 ### 4.6 База данных
 
@@ -342,9 +337,9 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (v0.1.2)
+## 5. Сервис `messenger` (v0.1.3)
 
-### 5.0 Текущее состояние (v0.1.2)
+### 5.0 Текущее состояние (v0.1.3)
 
 - FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
 - Конфигурация через `pydantic-settings` из `.env` (включая postgres_*, auth_grpc_*)
@@ -354,8 +349,9 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 - Alembic: миграции в `migration/versions/`, async env.py
 - 4 таблицы: `dialogs`, `dialog_participants`, `messages`, `message_statuses`
 - Репозитории: `DialogsRepository`, `MessagesRepository` (абстрактные + конкретные)
-- gRPC-клиент к auth (`GetUserInfoByToken`) + FastAPI dependency `get_current_user_id`
-- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency)
+- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`) + FastAPI dependency `get_current_user_id`
+- `POST /dialogs/direct` — создание/получение 1:1 диалога (слои: schemas → service → repository)
+- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs endpoint)
 
 ### 5.1 Переменные окружения
 
@@ -383,6 +379,7 @@ Messenger валидирует access token пользователя через 
 **gRPC-клиент** (`src/gRPC/client.py`):
 - Канал открывается в lifespan приложения (`open_auth_grpc_channel`) и закрывается при shutdown
 - `get_user_id_by_token(access_token) -> UUID` — вызывает `UserStub.GetUserInfoByToken`
+- `get_user_id_by_login(login) -> UUID` — вызывает `UserStub.GetUserByLogin` (TASK-004)
 
 **FastAPI dependency** (`src/dependencies/auth.py`):
 - `get_current_user_id(access_token: Cookie) -> UUID`
@@ -437,7 +434,7 @@ alembic downgrade -1
 
 | Репозиторий | Методы |
 |---|---|
-| `DialogsRepository` | `create`, `get_by_id`, `get_user_dialogs`, `add_participant` |
+| `DialogsRepository` | `create`, `get_by_id`, `get_user_dialogs`, `add_participant`, `get_direct_dialog` |
 | `MessagesRepository` | `create`, `get_by_id`, `get_by_dialog` (с пагинацией), `set_status` |
 
 Абстрактные базы в `repositories/base/`, конкретные реализации в `repositories/`.
@@ -450,19 +447,42 @@ alembic downgrade -1
 | `test_migrations.py` | upgrade на чистой БД, idempotent re-run |
 | `test_repositories.py` | CRUD: dialogs (create, get_by_id, not_found, participants), messages (create, get_by_id, get_by_dialog, pagination, set_status) |
 | `test_auth_dependency.py` | Auth dependency: valid token → 200, invalid/expired/blacklisted → 403, missing → 422, unavailable → 503 |
+| `test_dialogs.py` | POST /dialogs/direct: create dialog, idempotent get, self-dialog → 400, not found → 404 |
 
-Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions.
+Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions. `db_client` fixture overrides `get_session` for integration tests.
 
-### Планируемый API
+### API
 
-| Метод | Путь | Описание |
+| Метод | Путь | Описание | Статус |
+|---|---|---|---|
+| `POST` | `/messenger/api/v1/dialogs/direct` | Создать/получить 1:1 диалог | ✅ реализован |
+| `GET` | `/messenger/api/v1/dialogs` | Список диалогов | планируется |
+| `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений | планируется |
+| `POST` | `/messenger/api/v1/dialogs/{id}/messages` | Отправить сообщение | планируется |
+| `POST` | `/messenger/api/v1/messages/{id}/read` | Отметить как прочитанное | планируется |
+| `WS` | `/messenger/api/v1/ws` | WebSocket для realtime | планируется |
+
+### 5.5 POST /dialogs/direct (TASK-004)
+
+Создание или получение существующего 1:1 диалога.
+
+**Слои:**
+
+| Слой | Файл | Описание |
 |---|---|---|
-| `POST` | `/messenger/api/v1/dialogs/direct` | Создать 1:1 диалог |
-| `GET` | `/messenger/api/v1/dialogs` | Список диалогов |
-| `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений |
-| `POST` | `/messenger/api/v1/dialogs/{id}/messages` | Отправить сообщение |
-| `POST` | `/messenger/api/v1/messages/{id}/read` | Отметить как прочитанное |
-| `WS` | `/messenger/api/v1/ws` | WebSocket для realtime |
+| Schema | `schemas/v1/dialogs.py` | `CreateDirectDialogRequest` (target_login), `DialogResponse`, `ParticipantResponse` |
+| API | `api/v1/dialogs.py` | `POST /direct`, обработка ошибок (400/404/503) |
+| Service | `services/dialogs.py` | `DialogsService.create_or_get_direct`: resolve login → check self → find existing → create |
+| Repository | `repositories/dialogs.py` | `get_direct_dialog` (aliased join на DialogParticipant) |
+| Exceptions | `exceptions/dialogs.py` | `SelfDialogError`, `UserNotFoundError`, `AuthServiceUnavailableError` |
+| gRPC | `gRPC/client.py` | `get_user_id_by_login` → auth `GetUserByLogin` |
+
+**Поток:**
+1. Получаем `current_user_id` из cookie (auth dependency)
+2. Резолвим `target_login` → `target_user_id` через gRPC `GetUserByLogin`
+3. Проверяем `current_user_id != target_user_id` (иначе 400)
+4. Ищем существующий direct-диалог между парой
+5. Если найден — возвращаем, если нет — создаём + добавляем обоих участников
 
 ### WebSocket события (планируется)
 

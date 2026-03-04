@@ -44,3 +44,14 @@ async def get_user_id_by_token(access_token: str) -> UUID:
     except ValueError as e:
         logger.warning("Invalid user id from auth service: %s", response.id)
         raise ValueError("Invalid user id from auth service") from e
+
+
+async def get_user_id_by_login(login: str) -> UUID:
+    stub = get_auth_stub()
+    request = user_pb2.GetUserByLoginRequest(login=login)  # type: ignore[attr-defined]
+    response: user_pb2.GetUserByLoginResponse = await stub.GetUserByLogin(request)  # type: ignore[attr-defined]
+    try:
+        return UUID(response.id)
+    except ValueError as e:
+        logger.warning("Invalid user id from auth service: %s", response.id)
+        raise ValueError("Invalid user id from auth service") from e

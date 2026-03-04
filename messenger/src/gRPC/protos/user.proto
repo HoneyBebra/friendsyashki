@@ -10,6 +10,16 @@ message GetUserInfoByTokenResponse {
 }
 
 
+message GetUserByLoginRequest {
+  string login = 1;
+}
+
+message GetUserByLoginResponse {
+  string id = 1;
+}
+
+
 service User {
   rpc GetUserInfoByToken (GetUserInfoByTokenRequest) returns (GetUserInfoByTokenResponse) {}
+  rpc GetUserByLogin (GetUserByLoginRequest) returns (GetUserByLoginResponse) {}
 }

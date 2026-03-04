@@ -12,7 +12,7 @@
 
 - Для MVP делаем backend + минимальный frontend-клиент для ручной проверки сценариев.
 - Проверка пользователя в `messenger`: сервис получает токен и валидирует его через gRPC-вызов в `auth`.
-- Создание диалога в MVP: по `login`/username (а не по `user_id` напрямую).
+- Создание диалога в MVP: по `login`/username (а не по `user_id` напрямую). Реализовано в TASK-004 через gRPC-метод `GetUserByLogin`.
 - Версию `messenger` храним в env/config.
 - Приоритет после MVP: группы/каналы.
 
@@ -28,12 +28,14 @@
 
 Это означает, что для мессенджера аутентификацию нужно **переиспользовать**, а не дублировать.
 
-`messenger`-сервис (v0.1.2):
+`messenger`-сервис (v0.1.3):
 - FastAPI каркас с health endpoint;
 - PostgreSQL + Alembic: 4 таблицы (`dialogs`, `dialog_participants`, `messages`, `message_statuses`);
 - Async репозитории (`DialogsRepository`, `MessagesRepository`);
-- gRPC-клиент к auth (`GetUserInfoByToken`) + FastAPI dependency `get_current_user_id`;
-- Тесты: миграции + CRUD smoke-tests + auth dependency (testcontainers).
+- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`) + FastAPI dependency `get_current_user_id`;
+- `POST /dialogs/direct` — создание/получение 1:1 диалога по `target_login` (идемпотентно);
+- Слои: schemas (`CreateDirectDialogRequest`, `DialogResponse`) → service (`DialogsService`) → repository;
+- Тесты: миграции + CRUD smoke-tests + auth dependency + dialogs endpoint (testcontainers).
 
 ## 4) Scope
 

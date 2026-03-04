@@ -22,3 +22,9 @@ class BaseDialogsRepository(ABC):
         self, dialog_id: UUID, user_id: UUID
     ) -> None:
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_direct_dialog(
+        self, user_id_1: UUID, user_id_2: UUID
+    ) -> Dialog | None:
+        raise NotImplementedError

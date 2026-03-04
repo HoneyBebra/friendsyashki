@@ -96,3 +96,30 @@ async def db_session(
     async with factory() as session:
         yield session
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_client(
+    postgres_dsn: str, apply_migrations: None
+) -> AsyncIterator[AsyncClient]:
+    from src.db.postgres import get_session as _orig_get_session  # noqa: F811
+
+    test_engine = create_async_engine(postgres_dsn, echo=False)
+    test_factory = async_sessionmaker(
+        bind=test_engine, expire_on_commit=False
+    )
+
+    async def _override_get_session() -> AsyncIterator[AsyncSession]:
+        async with test_factory() as session:
+            try:
+                yield session
+            except Exception:
+                await session.rollback()
+                raise
+
+    app.dependency_overrides[_orig_get_session] = _override_get_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.pop(_orig_get_session, None)
+    await test_engine.dispose()

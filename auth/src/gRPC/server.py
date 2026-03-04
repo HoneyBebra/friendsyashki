@@ -33,6 +33,20 @@ class GrpcServer(user_pb2_grpc.UserServicer):  # type: ignore[name-defined]
 
         return user_pb2.GetUserInfoByTokenResponse(id=str(user_data.sub))  # type: ignore[name-defined]
 
+    async def GetUserByLogin(  # noqa: N802
+            self,
+            request: user_pb2.GetUserByLoginRequest,  # type: ignore[name-defined]
+            context: grpc.aio.ServicerContext,
+    ) -> user_pb2.GetUserByLoginResponse:  # type: ignore[name-defined]
+        users = await self.user_service.users_repository.read(login=request.login)
+
+        if not users:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details("User not found")
+            return user_pb2.GetUserByLoginResponse()  # type: ignore[name-defined]
+
+        return user_pb2.GetUserByLoginResponse(id=str(users[0].id))  # type: ignore[name-defined]
+
 
 async def get_grpc_session() -> GrpcServer:
     return GrpcServer(
