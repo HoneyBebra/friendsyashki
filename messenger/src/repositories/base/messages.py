@@ -17,6 +17,12 @@ class BaseMessagesRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_by_client_message_id(
+        self, client_message_id: str
+    ) -> Message | None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_by_id(self, message_id: UUID) -> Message | None:
         raise NotImplementedError
 

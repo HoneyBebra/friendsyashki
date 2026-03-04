@@ -32,6 +32,16 @@ class MessagesRepository(BaseMessagesRepository):
         await self.session.refresh(message)
         return message
 
+    async def get_by_client_message_id(
+        self, client_message_id: str
+    ) -> Message | None:
+        result = await self.session.execute(
+            select(Message).where(
+                Message.client_message_id == client_message_id
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id(self, message_id: UUID) -> Message | None:
         result = await self.session.execute(
             select(Message).where(Message.id == message_id)
