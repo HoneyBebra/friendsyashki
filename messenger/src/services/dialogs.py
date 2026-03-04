@@ -29,17 +29,10 @@ class DialogsService:
         if existing is not None:
             return existing
 
-        dialog = await self.dialogs_repository.create(dialog_type="direct")
-        await self.dialogs_repository.add_participant(
-            dialog.id, current_user_id
+        return await self.dialogs_repository.create_with_participants(
+            dialog_type="direct",
+            participant_ids=[current_user_id, target_user_id],
         )
-        await self.dialogs_repository.add_participant(
-            dialog.id, target_user_id
-        )
-
-        refreshed = await self.dialogs_repository.get_by_id(dialog.id)
-        assert refreshed is not None
-        return refreshed
 
     @staticmethod
     async def _resolve_target_user(target_login: str) -> UUID:

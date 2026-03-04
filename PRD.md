@@ -40,6 +40,13 @@
 - Слои: schemas → service → repository для dialogs и messages;
 - Тесты: миграции + CRUD smoke-tests + auth dependency + dialogs endpoint + list dialogs + messages endpoint + message history (testcontainers).
 
+Веб-клиент (TASK-UI-001):
+- Минимальный single-page веб-клиент (`web/index.html`) для ручного тестирования;
+- Регистрация, вход, выход, список диалогов, создание диалога, отправка/просмотр сообщений;
+- Dark theme, responsive layout, XSS-защита через DOM-based escaping;
+- Раздача через Nginx gateway на `/web/`;
+- Cookie-based аутентификация с `credentials: 'include'` и автоматическим refresh при 403.
+
 ## 4) Scope
 
 ### 4.1 MVP (обязательный объём)

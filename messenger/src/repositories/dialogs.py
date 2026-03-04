@@ -22,14 +22,29 @@ class DialogsRepository(BaseDialogsRepository):
         await self.session.refresh(dialog)
         return dialog
 
+    async def create_with_participants(
+        self,
+        dialog_type: str,
+        participant_ids: list[UUID],
+        title: str | None = None,
+    ) -> Dialog:
+        dialog = Dialog(type=DialogType(dialog_type), title=title)
+        self.session.add(dialog)
+        await self.session.flush()
+        for uid in participant_ids:
+            self.session.add(DialogParticipant(dialog_id=dialog.id, user_id=uid))
+        await self.session.commit()
+        await self.session.refresh(
+            dialog,
+            attribute_names=["id", "type", "title", "created_at", "participants"],
+        )
+        return dialog
+
     async def get_by_id(self, dialog_id: UUID) -> Dialog | None:
         result = await self.session.execute(
             select(Dialog).where(Dialog.id == dialog_id)
         )
-        dialog = result.scalar_one_or_none()
-        if dialog is not None:
-            await self.session.refresh(dialog)
-        return dialog
+        return result.scalar_one_or_none()
 
     async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
         result = await self.session.execute(

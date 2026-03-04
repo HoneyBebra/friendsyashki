@@ -24,6 +24,15 @@ class BaseDialogsRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def create_with_participants(
+        self,
+        dialog_type: str,
+        participant_ids: list[UUID],
+        title: str | None = None,
+    ) -> Dialog:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_direct_dialog(
         self, user_id_1: UUID, user_id_2: UUID
     ) -> Dialog | None:

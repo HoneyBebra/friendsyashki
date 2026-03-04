@@ -54,6 +54,7 @@
 **Текущее состояние:**
 - `auth` — полностью реализован
 - `messenger` — БД + модели + репозитории + auth dependency + dialogs + messages endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅, TASK-006 ✅, TASK-007 ✅), в разработке (TASK-008..011)
+- `web` — минимальный веб-клиент для ручного тестирования (TASK-UI-001 ✅)
 
 ---
 
@@ -97,7 +98,8 @@ friendsyashki/
 ├── requirements-dev.txt          # Dev-зависимости
 │
 ├── auth/                         # Сервис аутентификации ✅ реализован
-├── messenger/                    # Сервис мессенджера 🚧 DB + models ready (v0.1.1)
+├── messenger/                    # Сервис мессенджера (v0.1.6) ✅
+├── web/                          # Минимальный веб-клиент ✅ (TASK-UI-001)
 └── deploy/                       # Единый docker-compose для всего стека
 ```
 
@@ -133,6 +135,7 @@ friendsyashki/
 | `ENCRYPTION_USER_DATA_SECRET_KEY` | Ключ Fernet для шифрования PII |
 | `GRPC_PORT` | Порт gRPC сервера (default: 50051) |
 | `BACKOFF_RETRIES_COUNT` | Кол-во попыток reconnect (default: 10) |
+| `COOKIE_SECURE` | Флаг Secure для cookie (bool, default: `true`) |
 
 ### 4.2 Точка входа
 
@@ -437,7 +440,7 @@ alembic downgrade -1
 
 | Репозиторий | Методы |
 |---|---|
-| `DialogsRepository` | `create`, `get_by_id`, `get_user_dialogs`, `add_participant`, `get_direct_dialog` |
+| `DialogsRepository` | `create`, `create_with_participants`, `get_by_id`, `get_user_dialogs`, `add_participant`, `get_direct_dialog` |
 | `MessagesRepository` | `create`, `get_by_client_message_id`, `get_by_id`, `get_by_dialog` (с пагинацией), `set_status` |
 
 Абстрактные базы в `repositories/base/`, конкретные реализации в `repositories/`.
@@ -560,6 +563,34 @@ alembic downgrade -1
 
 ### Идентификация пользователя
 `messenger` использует gRPC-клиент к `auth` (`GetUserInfoByToken`) — см. секцию 5.2.
+
+---
+
+## 5.9 Веб-клиент (TASK-UI-001)
+
+Минимальный single-page клиент для ручного тестирования мессенджера.
+
+**Файл:** `web/index.html` — единый HTML-файл с встроенными CSS и JS.
+
+**Функционал:**
+- Регистрация (signup) и вход (login) через auth API
+- Автоматическая проверка сессии при загрузке (`GET /auth/api/v1/users/me`)
+- Автоматический refresh токена при 403
+- Список диалогов с обновлением
+- Создание 1:1 диалога по логину собеседника
+- Отправка и просмотр сообщений
+- Responsive layout (mobile-friendly)
+
+**Раздача через nginx:** `http://localhost/web/` (корень `/` редиректит на `/web/`)
+
+**Конфигурация:**
+- `deploy/infra/configs/nginx_gateway/site.conf` — location `/web/` с alias `/data/web/`
+- `deploy/docker-compose.infra.yml` — volume `../web:/data/web:ro`
+
+**Безопасность:**
+- XSS-защита через DOM-based escaping (`textContent` → `innerHTML`)
+- Cookie-based auth с `credentials: 'include'`
+- `cookie_secure` в auth настраивается через env (`COOKIE_SECURE`, default: `true`)
 
 ---
 

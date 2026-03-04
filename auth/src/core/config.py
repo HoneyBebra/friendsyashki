@@ -48,6 +48,8 @@ class Settings(BaseSettings):
 
     password_min_length: int = 8
 
+    cookie_secure: bool = True
+
     redis_host: str
     redis_port: str
     redis_db: int

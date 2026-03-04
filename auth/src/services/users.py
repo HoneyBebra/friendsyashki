@@ -112,13 +112,13 @@ class UsersService:
             key=settings.access_token_key_in_cookie,
             value=access_token,
             httponly=True,
-            secure=True,
+            secure=settings.cookie_secure,
         )
         response.set_cookie(
             key=settings.refresh_token_key_in_cookie,
             value=refresh_token,
             httponly=True,
-            secure=True,
+            secure=settings.cookie_secure,
         )
 
         return response
