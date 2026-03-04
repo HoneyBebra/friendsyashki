@@ -28,7 +28,7 @@
 
 Это означает, что для мессенджера аутентификацию нужно **переиспользовать**, а не дублировать.
 
-`messenger`-сервис (v0.1.5):
+`messenger`-сервис (v0.1.6):
 - FastAPI каркас с health endpoint;
 - PostgreSQL + Alembic: 4 таблицы (`dialogs`, `dialog_participants`, `messages`, `message_statuses`);
 - Async репозитории (`DialogsRepository`, `MessagesRepository`);
@@ -36,8 +36,9 @@
 - `POST /dialogs/direct` — создание/получение 1:1 диалога по `target_login` (идемпотентно);
 - `GET /dialogs` — список диалогов пользователя с сортировкой по `updated_at` DESC;
 - `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге;
+- `GET /dialogs/{dialog_id}/messages` — история сообщений с пагинацией (limit/offset), доступ только участникам диалога;
 - Слои: schemas → service → repository для dialogs и messages;
-- Тесты: миграции + CRUD smoke-tests + auth dependency + dialogs endpoint + list dialogs + messages endpoint (testcontainers).
+- Тесты: миграции + CRUD smoke-tests + auth dependency + dialogs endpoint + list dialogs + messages endpoint + message history (testcontainers).
 
 ## 4) Scope
 

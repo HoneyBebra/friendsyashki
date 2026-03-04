@@ -48,3 +48,24 @@ class MessagesService:
             text=text,
             client_message_id=client_message_id,
         )
+
+    async def get_messages(
+        self,
+        dialog_id: UUID,
+        user_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Message]:
+        dialog = await self.dialogs_repository.get_by_id(dialog_id)
+        if dialog is None:
+            raise DialogNotFoundError(dialog_id)
+
+        participant_ids = {p.user_id for p in dialog.participants}
+        if user_id not in participant_ids:
+            raise NotDialogParticipantError(user_id, dialog_id)
+
+        return await self.messages_repository.get_by_dialog(
+            dialog_id=dialog_id,
+            limit=limit,
+            offset=offset,
+        )

@@ -16,3 +16,7 @@ class MessageResponse(BaseModel):
     text: str
     client_message_id: str
     created_at: datetime
+
+
+class MessagesListResponse(BaseModel):
+    messages: list[MessageResponse]

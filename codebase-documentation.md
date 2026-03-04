@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — БД + модели + репозитории + auth dependency + dialogs + messages endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅, TASK-006 ✅), в разработке (TASK-007..011)
+- `messenger` — БД + модели + репозитории + auth dependency + dialogs + messages endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅, TASK-006 ✅, TASK-007 ✅), в разработке (TASK-008..011)
 
 ---
 
@@ -337,9 +337,9 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (v0.1.5)
+## 5. Сервис `messenger` (v0.1.6)
 
-### 5.0 Текущее состояние (v0.1.5)
+### 5.0 Текущее состояние (v0.1.6)
 
 - FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
 - Конфигурация через `pydantic-settings` из `.env` (включая postgres_*, auth_grpc_*)
@@ -353,7 +353,8 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 - `POST /dialogs/direct` — создание/получение 1:1 диалога (слои: schemas → service → repository)
 - `GET /dialogs` — список диалогов текущего пользователя, отсортированных по `updated_at` DESC
 - `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге
-- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs, messages)
+- `GET /dialogs/{dialog_id}/messages` — история сообщений с пагинацией (limit 1-100, offset 0-10000), доступ только участникам диалога, порядок по `created_at ASC`
+- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs, messages, message history)
 
 ### 5.1 Переменные окружения
 
@@ -450,7 +451,7 @@ alembic downgrade -1
 | `test_repositories.py` | CRUD: dialogs (create, get_by_id, not_found, participants), messages (create, get_by_id, get_by_dialog, pagination, set_status) |
 | `test_auth_dependency.py` | Auth dependency: valid token → 200, invalid/expired/blacklisted → 403, missing → 422, unavailable → 503 |
 | `test_dialogs.py` | POST /dialogs/direct: create, idempotent get, self-dialog → 400, not found → 404; GET /dialogs: user isolation, sorted by activity |
-| `test_messages.py` | POST /dialogs/{id}/messages: send message → 201, idempotent by client_message_id, foreign dialog → 403 |
+| `test_messages.py` | POST /dialogs/{id}/messages: send → 201, idempotent, foreign → 403; GET /dialogs/{id}/messages: limit/offset, deterministic order, participants only, 404 not found |
 
 Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions. `db_client` fixture overrides `get_session` for integration tests.
 
@@ -460,7 +461,7 @@ alembic downgrade -1
 |---|---|---|---|
 | `POST` | `/messenger/api/v1/dialogs/direct` | Создать/получить 1:1 диалог | ✅ реализован |
 | `GET` | `/messenger/api/v1/dialogs` | Список диалогов | ✅ реализован |
-| `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений | планируется |
+| `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений | ✅ реализован |
 | `POST` | `/messenger/api/v1/dialogs/{id}/messages` | Отправить сообщение | ✅ реализован |
 | `POST` | `/messenger/api/v1/messages/{id}/read` | Отметить как прочитанное | планируется |
 | `WS` | `/messenger/api/v1/ws` | WebSocket для realtime | планируется |
@@ -528,6 +529,26 @@ alembic downgrade -1
 5. Если найдено с тем же `dialog_id` и `sender_id` — возвращаем (без дубликата)
 6. Если найдено с другим контекстом — 409 Conflict
 7. Если не найдено — создаём и возвращаем 201
+
+### 5.8 GET /dialogs/{dialog_id}/messages (TASK-007)
+
+История сообщений диалога с пагинацией (limit/offset), доступ только участникам.
+
+**Слои:**
+
+| Слой | Файл | Описание |
+|---|---|---|
+| Schema | `schemas/v1/messages.py` | `MessagesListResponse` (список `MessageResponse`) |
+| API | `api/v1/messages.py` | `GET /{dialog_id}/messages`, query params: `limit` (1-100, default 50), `offset` (0-10000, default 0) |
+| Service | `services/messages.py` | `MessagesService.get_messages`: проверка диалога → проверка участия → выборка с пагинацией |
+| Repository | `repositories/messages.py` | `get_by_dialog(dialog_id, limit, offset)` — ORDER BY `created_at ASC` |
+
+**Поток:**
+1. Получаем `current_user_id` из cookie (auth dependency)
+2. Проверяем существование диалога по `dialog_id` (404 если не найден)
+3. Проверяем, что `current_user_id` является участником диалога (403 если нет)
+4. Запрашиваем сообщения с пагинацией, отсортированные хронологически (`created_at ASC`)
+5. Возвращаем `MessagesListResponse` со списком `MessageResponse`
 
 ### WebSocket события (планируется)
 

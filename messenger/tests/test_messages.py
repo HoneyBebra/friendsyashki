@@ -117,3 +117,128 @@ async def test_send_message_to_foreign_dialog_forbidden(
 
     assert response.status_code == 403
     assert "participant" in response.json()["detail"].lower()
+
+
+# ─── GET /dialogs/{id}/messages ───
+
+
+async def _send_message(
+    db_client: AsyncClient,
+    dialog_id: str,
+    sender_id: UUID,
+    text: str,
+    client_message_id: str,
+) -> dict[str, Any]:
+    mock_get_token = AsyncMock(return_value=sender_id)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.post(
+            _messages_endpoint(dialog_id),
+            json={"text": text, "client_message_id": client_message_id},
+            cookies={"access_token": "valid-token"},
+        )
+    assert resp.status_code == 201
+    return resp.json()
+
+
+@pytest.mark.asyncio
+async def test_get_messages_with_limit_and_offset(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    for i in range(5):
+        await _send_message(
+            db_client, dialog_id, user_a, f"msg-{i}", f"get-lo-{uuid4()}"
+        )
+
+    mock_get_token = AsyncMock(return_value=user_a)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp_all = await db_client.get(
+            _messages_endpoint(dialog_id),
+            params={"limit": 100, "offset": 0},
+            cookies={"access_token": "valid-token"},
+        )
+        resp_page = await db_client.get(
+            _messages_endpoint(dialog_id),
+            params={"limit": 2, "offset": 1},
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp_all.status_code == 200
+    all_msgs = resp_all.json()["messages"]
+    assert len(all_msgs) == 5
+
+    assert resp_page.status_code == 200
+    page_msgs = resp_page.json()["messages"]
+    assert len(page_msgs) == 2
+    assert page_msgs[0]["id"] == all_msgs[1]["id"]
+    assert page_msgs[1]["id"] == all_msgs[2]["id"]
+
+
+@pytest.mark.asyncio
+async def test_get_messages_deterministic_order(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    for i in range(3):
+        await _send_message(
+            db_client, dialog_id, user_a, f"order-{i}", f"order-{uuid4()}"
+        )
+
+    mock_get_token = AsyncMock(return_value=user_a)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp1 = await db_client.get(
+            _messages_endpoint(dialog_id),
+            cookies={"access_token": "valid-token"},
+        )
+        resp2 = await db_client.get(
+            _messages_endpoint(dialog_id),
+            cookies={"access_token": "valid-token"},
+        )
+
+    msgs1 = resp1.json()["messages"]
+    msgs2 = resp2.json()["messages"]
+    assert [m["id"] for m in msgs1] == [m["id"] for m in msgs2]
+
+    timestamps = [m["created_at"] for m in msgs1]
+    assert timestamps == sorted(timestamps)
+
+
+@pytest.mark.asyncio
+async def test_get_messages_only_participants_allowed(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    outsider = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    await _send_message(
+        db_client, dialog_id, user_a, "secret", f"secret-{uuid4()}"
+    )
+
+    mock_get_token = AsyncMock(return_value=outsider)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.get(
+            _messages_endpoint(dialog_id),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 403
+    assert "participant" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_messages_dialog_not_found(db_client: AsyncClient) -> None:
+    fake_dialog_id = str(uuid4())
+
+    mock_get_token = AsyncMock(return_value=uuid4())
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.get(
+            _messages_endpoint(fake_dialog_id),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 404
