@@ -9,11 +9,14 @@ from src.api.v1.health import router as health_router
 from src.core.config import settings
 from src.core.logger import LOGGING
 from src.db.postgres import engine
+from src.gRPC.client import close_auth_grpc_channel, open_auth_grpc_channel
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    await open_auth_grpc_channel()
     yield
+    await close_auth_grpc_channel()
     await engine.dispose()
 
 

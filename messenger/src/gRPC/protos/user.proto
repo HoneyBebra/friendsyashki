@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+
+message GetUserInfoByTokenRequest {
+  string access_token = 1;
+}
+
+message GetUserInfoByTokenResponse {
+    string id = 1;
+}
+
+
+service User {
+  rpc GetUserInfoByToken (GetUserInfoByTokenRequest) returns (GetUserInfoByTokenResponse) {}
+}

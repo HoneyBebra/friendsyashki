@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — БД + модели + репозитории (TASK-001 ✅, TASK-002 ✅), в разработке (TASK-003..011)
+- `messenger` — БД + модели + репозитории + auth dependency (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅), в разработке (TASK-004..011)
 
 ---
 
@@ -342,19 +342,20 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (v0.1.1)
+## 5. Сервис `messenger` (v0.1.2)
 
-### 5.0 Текущее состояние (v0.1.1)
+### 5.0 Текущее состояние (v0.1.2)
 
 - FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
-- Конфигурация через `pydantic-settings` из `.env` (включая postgres_*)
+- Конфигурация через `pydantic-settings` из `.env` (включая postgres_*, auth_grpc_*)
 - Docker-интеграция: `Dockerfile` + `docker-compose.yml` (messenger + postgres_messenger + nginx_messenger)
 - Интегрирован в `deploy/docker-compose.yml` и nginx gateway
 - PostgreSQL: async engine (`asyncpg`), session factory, `get_session` dependency
 - Alembic: миграции в `migration/versions/`, async env.py
 - 4 таблицы: `dialogs`, `dialog_participants`, `messages`, `message_statuses`
 - Репозитории: `DialogsRepository`, `MessagesRepository` (абстрактные + конкретные)
-- Тесты: `pytest` + `httpx` + `testcontainers` (13 тестов: health, миграции, CRUD)
+- gRPC-клиент к auth (`GetUserInfoByToken`) + FastAPI dependency `get_current_user_id`
+- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency)
 
 ### 5.1 Переменные окружения
 
@@ -372,8 +373,33 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 | `POSTGRES_HOST` | Хост PostgreSQL |
 | `POSTGRES_PORT` | Порт PostgreSQL |
 | `POSTGRES_ECHO` | Логировать SQL-запросы (bool, default: false) |
+| `AUTH_GRPC_HOST` | Хост gRPC-сервера auth (default: `auth`) |
+| `AUTH_GRPC_PORT` | Порт gRPC-сервера auth (default: `50051`) |
 
-### 5.2 База данных
+### 5.2 Идентификация пользователя (gRPC-клиент к auth)
+
+Messenger валидирует access token пользователя через gRPC-вызов к auth-сервису.
+
+**gRPC-клиент** (`src/gRPC/client.py`):
+- Канал открывается в lifespan приложения (`open_auth_grpc_channel`) и закрывается при shutdown
+- `get_user_id_by_token(access_token) -> UUID` — вызывает `UserStub.GetUserInfoByToken`
+
+**FastAPI dependency** (`src/dependencies/auth.py`):
+- `get_current_user_id(access_token: Cookie) -> UUID`
+- Читает `access_token` из cookie, вызывает gRPC, возвращает UUID пользователя
+- `PERMISSION_DENIED` → HTTP 403, `UNAVAILABLE/DEADLINE_EXCEEDED/INTERNAL` → HTTP 503
+
+Использование в endpoint:
+
+```python
+from src.dependencies.auth import get_current_user_id
+
+@router.get("/protected")
+async def protected(user_id: UUID = Depends(get_current_user_id)):
+    ...
+```
+
+### 5.3 База данных
 
 #### PostgreSQL (`db/postgres.py`)
 
@@ -416,13 +442,14 @@ alembic downgrade -1
 
 Абстрактные базы в `repositories/base/`, конкретные реализации в `repositories/`.
 
-### 5.3 Тесты
+### 5.4 Тесты
 
 | Файл | Тесты |
 |---|---|
 | `test_health.py` | health endpoint → 200 |
 | `test_migrations.py` | upgrade на чистой БД, idempotent re-run |
 | `test_repositories.py` | CRUD: dialogs (create, get_by_id, not_found, participants), messages (create, get_by_id, get_by_dialog, pagination, set_status) |
+| `test_auth_dependency.py` | Auth dependency: valid token → 200, invalid/expired/blacklisted → 403, missing → 422, unavailable → 503 |
 
 Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions.
 
@@ -446,7 +473,7 @@ alembic downgrade -1
 ```
 
 ### Идентификация пользователя
-`messenger` будет использовать gRPC-клиент к `auth` (`GetUserInfoByToken`) — см. TASK-003.
+`messenger` использует gRPC-клиент к `auth` (`GetUserInfoByToken`) — см. секцию 5.2.
 
 ---
 

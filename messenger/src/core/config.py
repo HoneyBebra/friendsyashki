@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     postgres_port: str
     postgres_echo: bool = False
 
+    auth_grpc_host: str = "auth"
+    auth_grpc_port: int = 50051
+
     @property
     def postgres_dsn(self) -> str:
         return (

@@ -13,6 +13,8 @@ os.environ.setdefault("POSTGRES_DB", "test_messenger")
 os.environ.setdefault("POSTGRES_HOST", "localhost")
 os.environ.setdefault("POSTGRES_PORT", "5432")
 os.environ.setdefault("POSTGRES_ECHO", "false")
+os.environ.setdefault("AUTH_GRPC_HOST", "localhost")
+os.environ.setdefault("AUTH_GRPC_PORT", "50051")
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

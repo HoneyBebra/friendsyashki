@@ -28,11 +28,12 @@
 
 Это означает, что для мессенджера аутентификацию нужно **переиспользовать**, а не дублировать.
 
-`messenger`-сервис (v0.1.1):
+`messenger`-сервис (v0.1.2):
 - FastAPI каркас с health endpoint;
 - PostgreSQL + Alembic: 4 таблицы (`dialogs`, `dialog_participants`, `messages`, `message_statuses`);
 - Async репозитории (`DialogsRepository`, `MessagesRepository`);
-- Тесты: миграции + CRUD smoke-tests (testcontainers).
+- gRPC-клиент к auth (`GetUserInfoByToken`) + FastAPI dependency `get_current_user_id`;
+- Тесты: миграции + CRUD smoke-tests + auth dependency (testcontainers).
 
 ## 4) Scope
 
