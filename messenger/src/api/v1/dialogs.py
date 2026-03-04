@@ -4,8 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.dependencies.auth import get_current_user_id
 from src.exceptions.dialogs import AuthServiceUnavailableError, SelfDialogError, UserNotFoundError
+from src.models.dialogs import Dialog
 from src.repositories.dialogs import DialogsRepository
-from src.schemas.v1.dialogs import CreateDirectDialogRequest, DialogResponse, ParticipantResponse
+from src.schemas.v1.dialogs import (
+    CreateDirectDialogRequest,
+    DialogResponse,
+    DialogsListResponse,
+    ParticipantResponse,
+)
 from src.services.dialogs import DialogsService
 
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
@@ -15,6 +21,37 @@ def get_dialogs_service(
     dialogs_repository: DialogsRepository = Depends(),
 ) -> DialogsService:
     return DialogsService(dialogs_repository=dialogs_repository)
+
+
+def _dialog_to_response(dialog: Dialog) -> DialogResponse:
+    return DialogResponse(
+        id=dialog.id,
+        type=dialog.type.value,
+        title=dialog.title,
+        participants=[
+            ParticipantResponse(
+                user_id=p.user_id,
+                joined_at=p.joined_at,
+            )
+            for p in dialog.participants
+        ],
+        created_at=dialog.created_at,
+    )
+
+
+@router.get(
+    "",
+    response_model=DialogsListResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_dialogs(
+    current_user_id: UUID = Depends(get_current_user_id),
+    service: DialogsService = Depends(get_dialogs_service),
+) -> DialogsListResponse:
+    dialogs = await service.get_user_dialogs(current_user_id)
+    return DialogsListResponse(
+        dialogs=[_dialog_to_response(d) for d in dialogs]
+    )
 
 
 @router.post(
@@ -48,16 +85,4 @@ async def create_or_get_direct_dialog(
             detail="Authentication service unavailable",
         ) from exc
 
-    return DialogResponse(
-        id=dialog.id,
-        type=dialog.type.value,
-        title=dialog.title,
-        participants=[
-            ParticipantResponse(
-                user_id=p.user_id,
-                joined_at=p.joined_at,
-            )
-            for p in dialog.participants
-        ],
-        created_at=dialog.created_at,
-    )
+    return _dialog_to_response(dialog)

@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — БД + модели + репозитории + auth dependency + dialogs endpoint (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅), в разработке (TASK-005..011)
+- `messenger` — БД + модели + репозитории + auth dependency + dialogs endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅), в разработке (TASK-006..011)
 
 ---
 
@@ -337,9 +337,9 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 
 ---
 
-## 5. Сервис `messenger` (v0.1.3)
+## 5. Сервис `messenger` (v0.1.4)
 
-### 5.0 Текущее состояние (v0.1.3)
+### 5.0 Текущее состояние (v0.1.4)
 
 - FastAPI-приложение с health endpoint (`GET /messenger/api/v1/health` → `200 {"status": "ok"}`)
 - Конфигурация через `pydantic-settings` из `.env` (включая postgres_*, auth_grpc_*)
@@ -351,7 +351,8 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 - Репозитории: `DialogsRepository`, `MessagesRepository` (абстрактные + конкретные)
 - gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`) + FastAPI dependency `get_current_user_id`
 - `POST /dialogs/direct` — создание/получение 1:1 диалога (слои: schemas → service → repository)
-- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs endpoint)
+- `GET /dialogs` — список диалогов текущего пользователя, отсортированных по `updated_at` DESC
+- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs endpoint, list dialogs)
 
 ### 5.1 Переменные окружения
 
@@ -447,7 +448,7 @@ alembic downgrade -1
 | `test_migrations.py` | upgrade на чистой БД, idempotent re-run |
 | `test_repositories.py` | CRUD: dialogs (create, get_by_id, not_found, participants), messages (create, get_by_id, get_by_dialog, pagination, set_status) |
 | `test_auth_dependency.py` | Auth dependency: valid token → 200, invalid/expired/blacklisted → 403, missing → 422, unavailable → 503 |
-| `test_dialogs.py` | POST /dialogs/direct: create dialog, idempotent get, self-dialog → 400, not found → 404 |
+| `test_dialogs.py` | POST /dialogs/direct: create, idempotent get, self-dialog → 400, not found → 404; GET /dialogs: user isolation, sorted by activity |
 
 Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions. `db_client` fixture overrides `get_session` for integration tests.
 
@@ -456,7 +457,7 @@ alembic downgrade -1
 | Метод | Путь | Описание | Статус |
 |---|---|---|---|
 | `POST` | `/messenger/api/v1/dialogs/direct` | Создать/получить 1:1 диалог | ✅ реализован |
-| `GET` | `/messenger/api/v1/dialogs` | Список диалогов | планируется |
+| `GET` | `/messenger/api/v1/dialogs` | Список диалогов | ✅ реализован |
 | `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений | планируется |
 | `POST` | `/messenger/api/v1/dialogs/{id}/messages` | Отправить сообщение | планируется |
 | `POST` | `/messenger/api/v1/messages/{id}/read` | Отметить как прочитанное | планируется |
@@ -483,6 +484,25 @@ alembic downgrade -1
 3. Проверяем `current_user_id != target_user_id` (иначе 400)
 4. Ищем существующий direct-диалог между парой
 5. Если найден — возвращаем, если нет — создаём + добавляем обоих участников
+
+### 5.6 GET /dialogs (TASK-005)
+
+Список диалогов текущего пользователя, отсортированных по последней активности (`updated_at DESC`).
+
+**Слои:**
+
+| Слой | Файл | Описание |
+|---|---|---|
+| Schema | `schemas/v1/dialogs.py` | `DialogsListResponse` (список `DialogResponse`) |
+| API | `api/v1/dialogs.py` | `GET ""`, маппинг через `_dialog_to_response` |
+| Service | `services/dialogs.py` | `DialogsService.get_user_dialogs` |
+| Repository | `repositories/dialogs.py` | `get_user_dialogs` (JOIN DialogParticipant, ORDER BY updated_at DESC) |
+
+**Поток:**
+1. Получаем `current_user_id` из cookie (auth dependency)
+2. Запрашиваем диалоги через `get_user_dialogs(user_id)` — JOIN по `dialog_participants`
+3. Результат отсортирован по `updated_at DESC` (недавно обновлённые — первыми)
+4. Возвращаем `DialogsListResponse` со списком `DialogResponse`
 
 ### WebSocket события (планируется)
 

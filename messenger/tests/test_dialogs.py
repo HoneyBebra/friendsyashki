@@ -9,6 +9,7 @@ _CURRENT_USER_ID = uuid4()
 _TARGET_USER_ID = uuid4()
 _TARGET_LOGIN = "target_user"
 _ENDPOINT = "/messenger/api/v1/dialogs/direct"
+_LIST_ENDPOINT = "/messenger/api/v1/dialogs"
 
 
 def _make_aio_rpc_error(
@@ -123,3 +124,110 @@ async def test_target_login_not_found(
 
     assert response.status_code == 404
     assert "nonexistent" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_user_sees_only_own_dialogs(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    user_c = uuid4()
+
+    mock_get_token_a = AsyncMock(return_value=user_a)
+    mock_get_login_b = AsyncMock(return_value=user_b)
+
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_a),
+        patch("src.services.dialogs.get_user_id_by_login", mock_get_login_b),
+    ):
+        await db_client.post(
+            _ENDPOINT,
+            json={"target_login": "user_b"},
+            cookies={"access_token": "token-a"},
+        )
+
+    mock_get_token_b = AsyncMock(return_value=user_b)
+    mock_get_login_c = AsyncMock(return_value=user_c)
+
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_b),
+        patch("src.services.dialogs.get_user_id_by_login", mock_get_login_c),
+    ):
+        await db_client.post(
+            _ENDPOINT,
+            json={"target_login": "user_c"},
+            cookies={"access_token": "token-b"},
+        )
+
+    with patch(
+        "src.dependencies.auth.get_user_id_by_token",
+        AsyncMock(return_value=user_c),
+    ):
+        response = await db_client.get(
+            _LIST_ENDPOINT,
+            cookies={"access_token": "token-c"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    dialogs = data["dialogs"]
+
+    for dialog in dialogs:
+        participant_ids = {p["user_id"] for p in dialog["participants"]}
+        assert str(user_c) in participant_ids
+
+
+@pytest.mark.asyncio
+async def test_dialogs_sorted_by_last_activity(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    user_c = uuid4()
+
+    mock_get_token_a = AsyncMock(return_value=user_a)
+
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_a),
+        patch(
+            "src.services.dialogs.get_user_id_by_login",
+            AsyncMock(return_value=user_b),
+        ),
+    ):
+        resp1 = await db_client.post(
+            _ENDPOINT,
+            json={"target_login": "user_b"},
+            cookies={"access_token": "token-a"},
+        )
+
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_a),
+        patch(
+            "src.services.dialogs.get_user_id_by_login",
+            AsyncMock(return_value=user_c),
+        ),
+    ):
+        resp2 = await db_client.post(
+            _ENDPOINT,
+            json={"target_login": "user_c"},
+            cookies={"access_token": "token-a"},
+        )
+
+    dialog_1_id = resp1.json()["id"]
+    dialog_2_id = resp2.json()["id"]
+
+    with patch(
+        "src.dependencies.auth.get_user_id_by_token",
+        AsyncMock(return_value=user_a),
+    ):
+        response = await db_client.get(
+            _LIST_ENDPOINT,
+            cookies={"access_token": "token-a"},
+        )
+
+    assert response.status_code == 200
+    dialogs = response.json()["dialogs"]
+    dialog_ids = [d["id"] for d in dialogs]
+
+    assert dialog_2_id in dialog_ids
+    assert dialog_1_id in dialog_ids
+    idx_2 = dialog_ids.index(dialog_2_id)
+    idx_1 = dialog_ids.index(dialog_1_id)
+    assert idx_2 < idx_1, "Newer dialog should appear first (sorted by updated_at DESC)"

@@ -12,6 +12,9 @@ class DialogsService:
     def __init__(self, dialogs_repository: DialogsRepository) -> None:
         self.dialogs_repository = dialogs_repository
 
+    async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
+        return await self.dialogs_repository.get_user_dialogs(user_id)
+
     async def create_or_get_direct(
         self, current_user_id: UUID, target_login: str
     ) -> Dialog:

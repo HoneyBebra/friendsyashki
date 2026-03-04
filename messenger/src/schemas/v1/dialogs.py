@@ -19,3 +19,7 @@ class DialogResponse(BaseModel):
     title: str | None
     participants: list[ParticipantResponse]
     created_at: datetime
+
+
+class DialogsListResponse(BaseModel):
+    dialogs: list[DialogResponse]

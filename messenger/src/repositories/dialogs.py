@@ -36,6 +36,7 @@ class DialogsRepository(BaseDialogsRepository):
             select(Dialog)
             .join(DialogParticipant)
             .where(DialogParticipant.user_id == user_id)
+            .order_by(Dialog.updated_at.desc())
         )
         return list(result.scalars().all())
 
