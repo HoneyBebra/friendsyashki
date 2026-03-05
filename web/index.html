@@ -181,6 +181,21 @@ async function api(url, opts = {}) {
   return res;
 }
 
+function formatApiError(data, fallbackStatus) {
+  if (data?.detail != null) {
+    const d = data.detail;
+    if (Array.isArray(d)) {
+      const messages = d.map(function (item) {
+        const msg = item?.msg ?? item?.message;
+        return typeof msg === 'string' ? msg.replace(/^Value error,\s*/i, '') : '';
+      }).filter(Boolean);
+      return messages.length ? messages.join(' • ') : (data?.message || 'Ошибка ' + fallbackStatus);
+    }
+    return typeof d === 'string' ? d : (data?.message || 'Ошибка ' + fallbackStatus);
+  }
+  return data?.message || 'Ошибка ' + fallbackStatus;
+}
+
 async function doSignup() {
   const login = document.getElementById('signup-login').value.trim();
   const email = document.getElementById('signup-email').value.trim();
@@ -197,7 +212,7 @@ async function doSignup() {
     await enterApp();
   } else {
     const data = await res.json().catch(() => null);
-    errEl.textContent = data?.detail || data?.message || `Ошибка ${res.status}`;
+    errEl.textContent = formatApiError(data, res.status);
   }
 }
 
@@ -212,7 +227,7 @@ async function doLogin() {
     await enterApp();
   } else {
     const data = await res.json().catch(() => null);
-    errEl.textContent = data?.detail || data?.message || `Ошибка ${res.status}`;
+    errEl.textContent = formatApiError(data, res.status);
   }
 }
 
