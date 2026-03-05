@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -17,6 +18,7 @@ from src.schemas.v1.messages import MessageResponse, MessagesListResponse, SendM
 from src.services.messages import MessagesService
 from src.ws.manager import ws_manager
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dialogs", tags=["messages"])
 
 
@@ -129,4 +131,18 @@ async def send_message(
         participant_ids,
         {"event": "new_message", "payload": response.model_dump(mode="json")},
     )
+    connected_ids = ws_manager.get_connected_user_ids(participant_ids)
+    for user_id in connected_ids:
+        if user_id != current_user_id:
+            try:
+                await service.messages_repository.set_delivered_if_sent(
+                    message.id, user_id
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to set delivered for message_id=%s user_id=%s: %s",
+                    message.id,
+                    user_id,
+                    e,
+                )
     return response

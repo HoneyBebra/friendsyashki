@@ -36,10 +36,27 @@ class BaseMessagesRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_status(
+        self,
+        message_id: UUID,
+        user_id: UUID,
+    ) -> MessageStatus | None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def set_status(
         self,
         message_id: UUID,
         user_id: UUID,
         status: str,
     ) -> MessageStatus:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def set_delivered_if_sent(
+        self,
+        message_id: UUID,
+        user_id: UUID,
+    ) -> MessageStatus | None:
+        """Проставить delivered для участника; только если ещё sent или записи нет. Возвращает статус или None если не изменили."""
         raise NotImplementedError

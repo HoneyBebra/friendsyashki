@@ -31,6 +31,10 @@ class ConnectionManager:
                 del self._connections[user_id]
         logger.debug("WS unregistered for user_id=%s", user_id)
 
+    def get_connected_user_ids(self, user_ids: list[UUID]) -> list[UUID]:
+        """Вернуть подмножество user_ids, у которых есть хотя бы одно активное WS-соединение."""
+        return [uid for uid in user_ids if self._connections.get(uid)]
+
     async def broadcast_to_users(
         self,
         user_ids: list[UUID],
