@@ -185,7 +185,7 @@ FastAPI-роутер. Принимает HTTP-запросы, вызывает �
 Бизнес-логика. Методы:
 - `create(schema)` — хеширует пароль, шифрует PII, сохраняет пользователя
 - `authenticate(schema)` — верифицирует пароль, возвращает пользователя или выбрасывает `InvalidCredentials`
-- `add_tokens_to_response(response, user_id)` — генерирует пару токенов и записывает в куки
+- `add_tokens_to_response(response, user_id, login=None)` — генерирует пару токенов (с полем `login` в payload при наличии) и записывает в куки
 - `add_token_to_blacklist(token_data, raw_token)` — помещает токен в Redis blacklist
 
 #### `repositories/users.py`
@@ -249,17 +249,21 @@ Proto-контракт (`auth/src/gRPC/protos/user.proto`):
 service User {
   rpc GetUserInfoByToken (GetUserInfoByTokenRequest) returns (GetUserInfoByTokenResponse);
   rpc GetUserByLogin (GetUserByLoginRequest) returns (GetUserByLoginResponse);
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdResponse);
 }
 
 message GetUserInfoByTokenRequest  { string access_token = 1; }
-message GetUserInfoByTokenResponse { string id = 1; }
+message GetUserInfoByTokenResponse { string id = 1; string login = 2; }
 message GetUserByLoginRequest      { string login = 1; }
-message GetUserByLoginResponse     { string id = 1; }
+message GetUserByLoginResponse     { string id = 1; string login = 2; }
+message GetUserByIdRequest         { string id = 1; }
+message GetUserByIdResponse        { string id = 1; string login = 2; }
 ```
 
 Методы:
-- `GetUserInfoByToken` — валидация access token, возвращает user_id. Используется в auth dependency.
-- `GetUserByLogin` — поиск пользователя по логину, возвращает user_id. Используется при создании диалога (TASK-004). Возвращает `NOT_FOUND` если пользователь не найден.
+- `GetUserInfoByToken` — валидация access token, возвращает `id` и `login`. Используется в auth dependency.
+- `GetUserByLogin` — поиск пользователя по логину, возвращает `id` и `login`. Используется при создании диалога (TASK-004). Возвращает `NOT_FOUND` если пользователь не найден.
+- `GetUserById` — поиск пользователя по `id`, возвращает `id` и `login`. Используется в messenger для отображения логинов в участниках диалогов и в сообщениях вместо UUID.
 
 ### 4.6 База данных
 
@@ -352,7 +356,7 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 - Alembic: миграции в `migration/versions/`, async env.py
 - 4 таблицы: `dialogs`, `dialog_participants`, `messages`, `message_statuses`
 - Репозитории: `DialogsRepository`, `MessagesRepository` (абстрактные + конкретные)
-- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`) + FastAPI dependency `get_current_user_id`
+- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`, `GetUserById`) + FastAPI dependency `get_current_user_id`; резолв логина по user_id через `get_login_by_user_id`
 - `POST /dialogs/direct` — создание/получение 1:1 диалога (слои: schemas → service → repository)
 - `GET /dialogs` — список диалогов текущего пользователя, отсортированных по `updated_at` DESC
 - `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге
@@ -386,6 +390,7 @@ Messenger валидирует access token пользователя через 
 - Канал открывается в lifespan приложения (`open_auth_grpc_channel`) и закрывается при shutdown
 - `get_user_id_by_token(access_token) -> UUID` — вызывает `UserStub.GetUserInfoByToken`
 - `get_user_id_by_login(login) -> UUID` — вызывает `UserStub.GetUserByLogin` (TASK-004)
+- `get_login_by_user_id(user_id) -> str` — вызывает `UserStub.GetUserById`, возвращает логин для отображения в API (диалоги, сообщения)
 
 **FastAPI dependency** (`src/dependencies/auth.py`):
 - `get_current_user_id(access_token: Cookie) -> UUID`
@@ -477,7 +482,7 @@ alembic downgrade -1
 
 | Слой | Файл | Описание |
 |---|---|---|
-| Schema | `schemas/v1/dialogs.py` | `CreateDirectDialogRequest` (target_login), `DialogResponse`, `ParticipantResponse` |
+| Schema | `schemas/v1/dialogs.py` | `CreateDirectDialogRequest` (target_login), `DialogResponse`, `ParticipantResponse` (login, joined_at) |
 | API | `api/v1/dialogs.py` | `POST /direct`, обработка ошибок (400/404/503) |
 | Service | `services/dialogs.py` | `DialogsService.create_or_get_direct`: resolve login → check self → find existing → create |
 | Repository | `repositories/dialogs.py` | `get_direct_dialog` (aliased join на DialogParticipant) |
@@ -518,7 +523,7 @@ alembic downgrade -1
 
 | Слой | Файл | Описание |
 |---|---|---|
-| Schema | `schemas/v1/messages.py` | `SendMessageRequest` (text, client_message_id), `MessageResponse` |
+| Schema | `schemas/v1/messages.py` | `SendMessageRequest` (text, client_message_id), `MessageResponse` (id, dialog_id, sender_login, text, …) |
 | API | `api/v1/messages.py` | `POST /{dialog_id}/messages`, обработка ошибок (403/404/409) |
 | Service | `services/messages.py` | `MessagesService.send_message`: проверка диалога → проверка участия → идемпотентность → создание |
 | Repository | `repositories/messages.py` | `get_by_client_message_id` (поиск существующего сообщения) |

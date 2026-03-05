@@ -55,3 +55,18 @@ async def get_user_id_by_login(login: str) -> UUID:
     except ValueError as e:
         logger.warning("Invalid user id from auth service: %s", response.id)
         raise ValueError("Invalid user id from auth service") from e
+
+
+async def get_login_by_user_id(user_id: UUID) -> str:
+    """Resolve user login by user_id via auth gRPC GetUserById. Raises on error/not found."""
+    stub = get_auth_stub()
+    request = user_pb2.GetUserByIdRequest(id=str(user_id))  # type: ignore[attr-defined]
+    try:
+        response: user_pb2.GetUserByIdResponse = await stub.GetUserById(request)  # type: ignore[attr-defined]
+    except grpc.RpcError as e:
+        logger.warning("Auth GetUserById failed for user_id=%s: %s", user_id, e)
+        raise ValueError("User login not found") from e
+    if not response.login:
+        logger.warning("Empty login from auth for user_id=%s", user_id)
+        raise ValueError("User login not found")
+    return response.login

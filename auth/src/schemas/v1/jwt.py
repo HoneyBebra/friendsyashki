@@ -6,3 +6,4 @@ class UserJwtSchema(BaseModel):
     iat: float
     exp: float
     type: str
+    login: str | None = None

@@ -14,6 +14,10 @@ def _messages_endpoint(dialog_id: str) -> str:
     return f"/messenger/api/v1/dialogs/{dialog_id}/messages"
 
 
+def _mock_login_by_uid(uid: object) -> str:
+    return str(uid).replace("-", "")[:8]
+
+
 async def _create_dialog(
     db_client: AsyncClient,
     user_a: UUID,
@@ -22,10 +26,12 @@ async def _create_dialog(
     """Helper: create a direct dialog between two users and return response JSON."""
     mock_get_token = AsyncMock(return_value=user_a)
     mock_get_login = AsyncMock(return_value=user_b)
+    mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
 
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp = await db_client.post(
             _DIALOG_ENDPOINT,
@@ -42,7 +48,11 @@ async def test_send_message_saved_and_returned(db_client: AsyncClient) -> None:
     dialog_id = dialog["id"]
 
     mock_get_token = AsyncMock(return_value=_CURRENT_USER_ID)
-    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+    mock_get_login_by_user_id = AsyncMock(return_value="sender_login_mock")
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+    ):
         response = await db_client.post(
             _messages_endpoint(dialog_id),
             json={
@@ -57,7 +67,7 @@ async def test_send_message_saved_and_returned(db_client: AsyncClient) -> None:
     assert data["text"] == "Hello!"
     assert data["client_message_id"] == "unique-msg-001"
     assert data["dialog_id"] == dialog_id
-    assert data["sender_id"] == str(_CURRENT_USER_ID)
+    assert data["sender_login"] == "sender_login_mock"
     assert "id" in data
     assert "created_at" in data
 
@@ -71,7 +81,11 @@ async def test_idempotent_by_client_message_id(db_client: AsyncClient) -> None:
     client_msg_id = f"idempotent-{uuid4()}"
 
     mock_get_token = AsyncMock(return_value=user_a)
-    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+    mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+    ):
         resp1 = await db_client.post(
             _messages_endpoint(dialog_id),
             json={
@@ -130,7 +144,11 @@ async def _send_message(
     client_message_id: str,
 ) -> dict[str, Any]:
     mock_get_token = AsyncMock(return_value=sender_id)
-    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+    mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+    ):
         resp = await db_client.post(
             _messages_endpoint(dialog_id),
             json={"text": text, "client_message_id": client_message_id},
@@ -153,7 +171,11 @@ async def test_get_messages_with_limit_and_offset(db_client: AsyncClient) -> Non
         )
 
     mock_get_token = AsyncMock(return_value=user_a)
-    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+    mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+    ):
         resp_all = await db_client.get(
             _messages_endpoint(dialog_id),
             params={"limit": 100, "offset": 0},
@@ -189,7 +211,11 @@ async def test_get_messages_deterministic_order(db_client: AsyncClient) -> None:
         )
 
     mock_get_token = AsyncMock(return_value=user_a)
-    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+    mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
+    with (
+        patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+    ):
         resp1 = await db_client.get(
             _messages_endpoint(dialog_id),
             cookies={"access_token": "valid-token"},

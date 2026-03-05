@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 from fastapi import Depends, Response
 
@@ -96,16 +97,20 @@ class UsersService:
 
     @staticmethod
     async def add_tokens_to_response(
-            user_id: str,
             response: Response,
+            user_id: str | UUID,
+            login: str | None = None,
     ) -> Response:
+        uid = str(user_id)
         access_token = await create_token(
-            sub=user_id,
+            sub=uid,
             token_type="access",
+            login=login,
         )
         refresh_token = await create_token(
-            sub=user_id,
+            sub=uid,
             token_type="refresh",
+            login=login,
         )
 
         response.set_cookie(

@@ -12,7 +12,7 @@ class SendMessageRequest(BaseModel):
 class MessageResponse(BaseModel):
     id: uuid.UUID
     dialog_id: uuid.UUID
-    sender_id: uuid.UUID
+    sender_login: str
     text: str
     client_message_id: str
     created_at: datetime

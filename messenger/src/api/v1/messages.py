@@ -3,11 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.dependencies.auth import get_current_user_id
+from src.exceptions.dialogs import AuthServiceUnavailableError
 from src.exceptions.messages import (
     ClientMessageIdConflictError,
     DialogNotFoundError,
     NotDialogParticipantError,
 )
+from src.gRPC.client import get_login_by_user_id
 from src.models.messages import Message
 from src.repositories.dialogs import DialogsRepository
 from src.repositories.messages import MessagesRepository
@@ -27,11 +29,15 @@ def get_messages_service(
     )
 
 
-def _message_to_response(message: Message) -> MessageResponse:
+async def _message_to_response(message: Message) -> MessageResponse:
+    try:
+        sender_login = await get_login_by_user_id(message.sender_id)
+    except ValueError:
+        raise AuthServiceUnavailableError from None
     return MessageResponse(
         id=message.id,
         dialog_id=message.dialog_id,
-        sender_id=message.sender_id,
+        sender_login=sender_login,
         text=message.text,
         client_message_id=message.client_message_id,
         created_at=message.created_at,
@@ -67,9 +73,14 @@ async def get_messages(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a participant of this dialog",
         ) from exc
+    except AuthServiceUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
+        ) from exc
 
     return MessagesListResponse(
-        messages=[_message_to_response(m) for m in messages],
+        messages=[await _message_to_response(m) for m in messages],
     )
 
 
@@ -106,5 +117,10 @@ async def send_message(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+    except AuthServiceUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
+        ) from exc
 
-    return _message_to_response(message)
+    return await _message_to_response(message)

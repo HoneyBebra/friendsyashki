@@ -32,6 +32,10 @@ class BaseUsersRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def read_by_id(self, user_id: UUID) -> Users | None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def update(
             self,
             user_id: UUID,

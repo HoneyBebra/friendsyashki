@@ -9,5 +9,5 @@ SQLAlchemy==2.0.43
 alembic==1.16.4
 asyncpg==0.30.0
 greenlet==3.2.3
-grpcio==1.76.0
-grpcio-tools==1.76.0
+grpcio>=1.78.0
+grpcio-tools>=1.78.0

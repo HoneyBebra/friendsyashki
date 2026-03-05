@@ -69,6 +69,11 @@ class UsersRepository(BaseUsersRepository):
         return list(result.scalars().all())
 
     @retry(**settings.backoff_decorator_sqlalchemy_settings)
+    async def read_by_id(self, user_id: UUID) -> Users | None:
+        result = await self.session.execute(select(Users).where(Users.id == user_id))
+        return result.scalars().one_or_none()
+
+    @retry(**settings.backoff_decorator_sqlalchemy_settings)
     async def update(  # type: ignore[empty-body]
             self,
             user_id: UUID,

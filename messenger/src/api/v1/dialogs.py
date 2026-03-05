@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.dependencies.auth import get_current_user_id
 from src.exceptions.dialogs import AuthServiceUnavailableError, SelfDialogError, UserNotFoundError
+from src.gRPC.client import get_login_by_user_id
 from src.models.dialogs import Dialog
 from src.repositories.dialogs import DialogsRepository
 from src.schemas.v1.dialogs import (
@@ -23,18 +24,21 @@ def get_dialogs_service(
     return DialogsService(dialogs_repository=dialogs_repository)
 
 
-def _dialog_to_response(dialog: Dialog) -> DialogResponse:
+async def _dialog_to_response(dialog: Dialog) -> DialogResponse:
+    participants_resp = []
+    for p in dialog.participants:
+        try:
+            login = await get_login_by_user_id(p.user_id)
+        except ValueError:
+            raise AuthServiceUnavailableError from None
+        participants_resp.append(
+            ParticipantResponse(login=login, joined_at=p.joined_at),
+        )
     return DialogResponse(
         id=dialog.id,
         type=dialog.type.value,
         title=dialog.title,
-        participants=[
-            ParticipantResponse(
-                user_id=p.user_id,
-                joined_at=p.joined_at,
-            )
-            for p in dialog.participants
-        ],
+        participants=participants_resp,
         created_at=dialog.created_at,
     )
 
@@ -50,7 +54,7 @@ async def get_dialogs(
 ) -> DialogsListResponse:
     dialogs = await service.get_user_dialogs(current_user_id)
     return DialogsListResponse(
-        dialogs=[_dialog_to_response(d) for d in dialogs]
+        dialogs=[await _dialog_to_response(d) for d in dialogs],
     )
 
 
@@ -85,4 +89,4 @@ async def create_or_get_direct_dialog(
             detail="Authentication service unavailable",
         ) from exc
 
-    return _dialog_to_response(dialog)
+    return await _dialog_to_response(dialog)

@@ -9,7 +9,7 @@ class CreateDirectDialogRequest(BaseModel):
 
 
 class ParticipantResponse(BaseModel):
-    user_id: uuid.UUID
+    login: str
     joined_at: datetime
 
 

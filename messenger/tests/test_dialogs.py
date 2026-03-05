@@ -27,10 +27,14 @@ def _make_aio_rpc_error(
 async def test_create_direct_dialog(db_client: AsyncClient) -> None:
     mock_get_token = AsyncMock(return_value=_CURRENT_USER_ID)
     mock_get_login = AsyncMock(return_value=_TARGET_USER_ID)
+    mock_get_login_by_user_id = AsyncMock(
+        side_effect=lambda uid: "current_user" if uid == _CURRENT_USER_ID else "target_user",
+    )
 
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         response = await db_client.post(
             _ENDPOINT,
@@ -43,11 +47,15 @@ async def test_create_direct_dialog(db_client: AsyncClient) -> None:
     assert data["type"] == "direct"
     assert len(data["participants"]) == 2
 
-    participant_ids = {p["user_id"] for p in data["participants"]}
-    assert str(_CURRENT_USER_ID) in participant_ids
-    assert str(_TARGET_USER_ID) in participant_ids
+    participant_logins = {p["login"] for p in data["participants"]}
+    assert "current_user" in participant_logins
+    assert "target_user" in participant_logins
 
     mock_get_login.assert_awaited_once_with(_TARGET_LOGIN)
+
+
+def _any_login_mock(uid: object) -> str:
+    return str(uid).replace("-", "")[:8]
 
 
 @pytest.mark.asyncio
@@ -58,10 +66,12 @@ async def test_get_existing_direct_dialog(
     user_b = uuid4()
     mock_get_token = AsyncMock(return_value=user_a)
     mock_get_login = AsyncMock(return_value=user_b)
+    mock_get_login_by_user_id = AsyncMock(side_effect=_any_login_mock)
 
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp1 = await db_client.post(
             _ENDPOINT,
@@ -134,10 +144,12 @@ async def test_user_sees_only_own_dialogs(db_client: AsyncClient) -> None:
 
     mock_get_token_a = AsyncMock(return_value=user_a)
     mock_get_login_b = AsyncMock(return_value=user_b)
+    mock_get_login_by_user_id = AsyncMock(side_effect=_any_login_mock)
 
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_a),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login_b),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         await db_client.post(
             _ENDPOINT,
@@ -151,6 +163,7 @@ async def test_user_sees_only_own_dialogs(db_client: AsyncClient) -> None:
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_b),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login_c),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         await db_client.post(
             _ENDPOINT,
@@ -158,9 +171,12 @@ async def test_user_sees_only_own_dialogs(db_client: AsyncClient) -> None:
             cookies={"access_token": "token-b"},
         )
 
-    with patch(
-        "src.dependencies.auth.get_user_id_by_token",
-        AsyncMock(return_value=user_c),
+    with (
+        patch(
+            "src.dependencies.auth.get_user_id_by_token",
+            AsyncMock(return_value=user_c),
+        ),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         response = await db_client.get(
             _LIST_ENDPOINT,
@@ -171,9 +187,10 @@ async def test_user_sees_only_own_dialogs(db_client: AsyncClient) -> None:
     data = response.json()
     dialogs = data["dialogs"]
 
+    user_c_login = _any_login_mock(user_c)
     for dialog in dialogs:
-        participant_ids = {p["user_id"] for p in dialog["participants"]}
-        assert str(user_c) in participant_ids
+        participant_logins = {p["login"] for p in dialog["participants"]}
+        assert user_c_login in participant_logins
 
 
 @pytest.mark.asyncio
@@ -184,12 +201,14 @@ async def test_dialogs_sorted_by_last_activity(db_client: AsyncClient) -> None:
 
     mock_get_token_a = AsyncMock(return_value=user_a)
 
+    mock_get_login_by_user_id = AsyncMock(side_effect=_any_login_mock)
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token_a),
         patch(
             "src.services.dialogs.get_user_id_by_login",
             AsyncMock(return_value=user_b),
         ),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp1 = await db_client.post(
             _ENDPOINT,
@@ -203,6 +222,7 @@ async def test_dialogs_sorted_by_last_activity(db_client: AsyncClient) -> None:
             "src.services.dialogs.get_user_id_by_login",
             AsyncMock(return_value=user_c),
         ),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp2 = await db_client.post(
             _ENDPOINT,
@@ -213,9 +233,12 @@ async def test_dialogs_sorted_by_last_activity(db_client: AsyncClient) -> None:
     dialog_1_id = resp1.json()["id"]
     dialog_2_id = resp2.json()["id"]
 
-    with patch(
-        "src.dependencies.auth.get_user_id_by_token",
-        AsyncMock(return_value=user_a),
+    with (
+        patch(
+            "src.dependencies.auth.get_user_id_by_token",
+            AsyncMock(return_value=user_a),
+        ),
+        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         response = await db_client.get(
             _LIST_ENDPOINT,

@@ -31,7 +31,10 @@ class GrpcServer(user_pb2_grpc.UserServicer):  # type: ignore[name-defined]
             context.set_details(e.detail)
             return user_pb2.GetUserInfoByTokenResponse()  # type: ignore[name-defined]
 
-        return user_pb2.GetUserInfoByTokenResponse(id=str(user_data.sub))  # type: ignore[name-defined]
+        return user_pb2.GetUserInfoByTokenResponse(  # type: ignore[name-defined]
+            id=str(user_data.sub),
+            login=user_data.login or "",
+        )
 
     async def GetUserByLogin(  # noqa: N802
             self,
@@ -45,7 +48,30 @@ class GrpcServer(user_pb2_grpc.UserServicer):  # type: ignore[name-defined]
             context.set_details("User not found")
             return user_pb2.GetUserByLoginResponse()  # type: ignore[name-defined]
 
-        return user_pb2.GetUserByLoginResponse(id=str(users[0].id))  # type: ignore[name-defined]
+        u = users[0]
+        return user_pb2.GetUserByLoginResponse(id=str(u.id), login=u.login)  # type: ignore[name-defined]
+
+    async def GetUserById(  # noqa: N802
+            self,
+            request: user_pb2.GetUserByIdRequest,  # type: ignore[name-defined]
+            context: grpc.aio.ServicerContext,
+    ) -> user_pb2.GetUserByIdResponse:  # type: ignore[name-defined]
+        from uuid import UUID
+
+        try:
+            user_id = UUID(request.id)
+        except ValueError:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("Invalid user id")
+            return user_pb2.GetUserByIdResponse()  # type: ignore[name-defined]
+
+        user = await self.user_service.users_repository.read_by_id(user_id)
+        if not user:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details("User not found")
+            return user_pb2.GetUserByIdResponse()  # type: ignore[name-defined]
+
+        return user_pb2.GetUserByIdResponse(id=str(user.id), login=user.login)  # type: ignore[name-defined]
 
 
 async def get_grpc_session() -> GrpcServer:

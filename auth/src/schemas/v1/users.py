@@ -38,3 +38,4 @@ class UserLoginSchema(UserEntersDataBaseSchema):
 
 class ResponseUserData(BaseModel):
     id: UUID
+    login: str | None = None

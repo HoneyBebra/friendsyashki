@@ -11,12 +11,15 @@ from src.exceptions.jwt import WrongTokenType
 async def create_token(
         sub: UUID | str,
         token_type: Literal["access", "refresh"],
+        login: str | None = None,
 ) -> str:
     iat = time.time()
-    raw_data = {
+    raw_data: dict[str, object] = {
         "sub": str(sub),
         "iat": iat,
     }
+    if login is not None:
+        raw_data["login"] = login
 
     if token_type == "access":
         raw_data["exp"] = iat + settings.access_token_expire

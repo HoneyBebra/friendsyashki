@@ -40,8 +40,9 @@ async def signup_user(
 
         user = await user_service.create(user_data)
         response = await user_service.add_tokens_to_response(
-            user_id=user.id,
             response=response,
+            user_id=user.id,
+            login=user.login,
         )
         return response
     except UserAlreadyExists as e:
@@ -77,8 +78,9 @@ async def login_user(
         response = Response()
         user = await user_service.authenticate(login_data)
         return await user_service.add_tokens_to_response(
-            user_id=user.id,
             response=response,
+            user_id=user.id,
+            login=user.login,
         )
     except InvalidCredentials as e:
         raise HTTPException(
@@ -107,7 +109,7 @@ async def get_user(
 ) -> ResponseUserData:
     jwt_data, _ = access_token_data
 
-    return {"id": jwt_data.sub}  # type: ignore[return-value]
+    return {"id": jwt_data.sub, "login": jwt_data.login}  # type: ignore[return-value]
 
 
 @router.post(
@@ -135,8 +137,9 @@ async def refresh_tokens(
 
     await user_service.add_token_to_blacklist(raw_token, settings.refresh_token_expire)
     return await user_service.add_tokens_to_response(
-        user_id=jwt_data.sub,
         response=response,
+        user_id=jwt_data.sub,
+        login=jwt_data.login,
     )
 
 

@@ -3,9 +3,9 @@
 import grpc
 import warnings
 
-from . import user_pb2 as user__pb2
+from src.gRPC.protos import user_pb2 as src_dot_gRPC_dot_protos_dot_user__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in user_pb2_grpc.py depends on'
+        + ' but the generated code in src/gRPC/protos/user_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -36,13 +36,18 @@ class UserStub(object):
         """
         self.GetUserInfoByToken = channel.unary_unary(
                 '/User/GetUserInfoByToken',
-                request_serializer=user__pb2.GetUserInfoByTokenRequest.SerializeToString,
-                response_deserializer=user__pb2.GetUserInfoByTokenResponse.FromString,
+                request_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenRequest.SerializeToString,
+                response_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenResponse.FromString,
                 _registered_method=True)
         self.GetUserByLogin = channel.unary_unary(
                 '/User/GetUserByLogin',
-                request_serializer=user__pb2.GetUserByLoginRequest.SerializeToString,
-                response_deserializer=user__pb2.GetUserByLoginResponse.FromString,
+                request_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginRequest.SerializeToString,
+                response_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginResponse.FromString,
+                _registered_method=True)
+        self.GetUserById = channel.unary_unary(
+                '/User/GetUserById',
+                request_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdRequest.SerializeToString,
+                response_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdResponse.FromString,
                 _registered_method=True)
 
 
@@ -61,18 +66,29 @@ class UserServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetUserById(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_UserServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetUserInfoByToken': grpc.unary_unary_rpc_method_handler(
                     servicer.GetUserInfoByToken,
-                    request_deserializer=user__pb2.GetUserInfoByTokenRequest.FromString,
-                    response_serializer=user__pb2.GetUserInfoByTokenResponse.SerializeToString,
+                    request_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenRequest.FromString,
+                    response_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenResponse.SerializeToString,
             ),
             'GetUserByLogin': grpc.unary_unary_rpc_method_handler(
                     servicer.GetUserByLogin,
-                    request_deserializer=user__pb2.GetUserByLoginRequest.FromString,
-                    response_serializer=user__pb2.GetUserByLoginResponse.SerializeToString,
+                    request_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginRequest.FromString,
+                    response_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginResponse.SerializeToString,
+            ),
+            'GetUserById': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetUserById,
+                    request_deserializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdRequest.FromString,
+                    response_serializer=src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -100,8 +116,8 @@ class User(object):
             request,
             target,
             '/User/GetUserInfoByToken',
-            user__pb2.GetUserInfoByTokenRequest.SerializeToString,
-            user__pb2.GetUserInfoByTokenResponse.FromString,
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenRequest.SerializeToString,
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserInfoByTokenResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -127,8 +143,35 @@ class User(object):
             request,
             target,
             '/User/GetUserByLogin',
-            user__pb2.GetUserByLoginRequest.SerializeToString,
-            user__pb2.GetUserByLoginResponse.FromString,
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginRequest.SerializeToString,
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByLoginResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetUserById(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/User/GetUserById',
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdRequest.SerializeToString,
+            src_dot_gRPC_dot_protos_dot_user__pb2.GetUserByIdResponse.FromString,
             options,
             channel_credentials,
             insecure,

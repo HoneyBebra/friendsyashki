@@ -23,7 +23,8 @@
 - JWT в `HttpOnly` cookie (`access` + `refresh`);
 - Redis blacklist для инвалидированных токенов;
 - PostgreSQL для пользователей;
-- gRPC метод `GetUserInfoByToken` для валидации access token и получения `user_id`;
+- gRPC методы `GetUserInfoByToken`, `GetUserByLogin`, `GetUserById` для валидации токена и получения `id`/`login`;
+- В ответах REST и gRPC возвращается логин пользователя; в мессенджере в API отображаются логины (участники диалогов, отправитель сообщений) вместо UUID.
 - шифрование и хеширование персональных полей (email/phone), хеширование пароля.
 
 Это означает, что для мессенджера аутентификацию нужно **переиспользовать**, а не дублировать.
@@ -32,7 +33,7 @@
 - FastAPI каркас с health endpoint;
 - PostgreSQL + Alembic: 4 таблицы (`dialogs`, `dialog_participants`, `messages`, `message_statuses`);
 - Async репозитории (`DialogsRepository`, `MessagesRepository`);
-- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`) + FastAPI dependency `get_current_user_id`;
+- gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`, `GetUserById`) + FastAPI dependency `get_current_user_id`; в ответах диалогов/сообщений — логины вместо UUID;
 - `POST /dialogs/direct` — создание/получение 1:1 диалога по `target_login` (идемпотентно);
 - `GET /dialogs` — список диалогов пользователя с сортировкой по `updated_at` DESC;
 - `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге;
