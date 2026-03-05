@@ -9,4 +9,4 @@ services:
       - /dev/null:/etc/nginx/conf.d/default.conf:ro
       - ../web:/data/web:ro
     ports:
-      - "80:80"
+      - "0.0.0.0:80:80"  # доступ с других устройств в сети по http://<IP_хоста>

@@ -129,7 +129,6 @@ input::placeholder{color:var(--text2)}
           <input id="new-dialog-login" placeholder="Логин собеседника">
           <button onclick="createDialog()">+</button>
         </div>
-        <button class="secondary" onclick="loadDialogs()" style="width:100%;font-size:.85rem">Обновить диалоги</button>
       </div>
       <div class="dialog-list" id="dialog-list"></div>
     </div>
@@ -260,8 +259,9 @@ function connectWs() {
   ws.onmessage = function (ev) {
     try {
       const data = JSON.parse(ev.data);
-      if (data.event === 'new_message' && data.payload && data.payload.dialog_id === currentDialogId) {
-        appendMessage(data.payload);
+      if (data.event === 'new_message' && data.payload) {
+        if (data.payload.dialog_id === currentDialogId) appendMessage(data.payload);
+        loadDialogs();
       }
     } catch (e) {}
   };
@@ -314,7 +314,7 @@ function renderDialogs() {
   dialogs.forEach(d => {
     const el = document.createElement('div');
     el.className = 'dialog-item' + (d.id === currentDialogId ? ' active' : '');
-    const title = d.title || d.participants?.map(p => p.user_id).filter(id => id !== currentUserId).join(', ') || d.id.slice(0, 8);
+    const title = d.title || d.participants?.map(p => p.login).filter(login => login && login !== currentUserLogin).join(', ') || d.id.slice(0, 8);
     const date = d.created_at ? new Date(d.created_at).toLocaleDateString() : '';
     el.innerHTML = `<div class="title">${esc(title)}</div><div class="meta">${esc(date)}</div>`;
     el.onclick = () => openDialog(d);
@@ -346,7 +346,7 @@ async function openDialog(d) {
   renderDialogs();
   document.getElementById('chat-placeholder').style.display = 'none';
   document.getElementById('chat-active').style.display = 'flex';
-  const title = d.title || d.participants?.map(p => p.user_id).filter(id => id !== currentUserId).join(', ') || d.id.slice(0, 8);
+  const title = d.title || d.participants?.map(p => p.login).filter(login => login && login !== currentUserLogin).join(', ') || d.id.slice(0, 8);
   document.getElementById('chat-title').textContent = title;
   document.getElementById('sidebar').classList.add('hidden');
   await loadMessages();
