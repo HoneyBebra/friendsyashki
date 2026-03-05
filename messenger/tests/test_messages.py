@@ -31,7 +31,7 @@ async def _create_dialog(
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
         patch("src.services.dialogs.get_user_id_by_login", mock_get_login),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.dialogs.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp = await db_client.post(
             _DIALOG_ENDPOINT,
@@ -51,7 +51,7 @@ async def test_send_message_saved_and_returned(db_client: AsyncClient) -> None:
     mock_get_login_by_user_id = AsyncMock(return_value="sender_login_mock")
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.messages.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         response = await db_client.post(
             _messages_endpoint(dialog_id),
@@ -84,7 +84,7 @@ async def test_idempotent_by_client_message_id(db_client: AsyncClient) -> None:
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.messages.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp1 = await db_client.post(
             _messages_endpoint(dialog_id),
@@ -147,7 +147,7 @@ async def _send_message(
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.messages.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp = await db_client.post(
             _messages_endpoint(dialog_id),
@@ -174,7 +174,7 @@ async def test_get_messages_with_limit_and_offset(db_client: AsyncClient) -> Non
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.messages.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp_all = await db_client.get(
             _messages_endpoint(dialog_id),
@@ -214,7 +214,7 @@ async def test_get_messages_deterministic_order(db_client: AsyncClient) -> None:
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
     with (
         patch("src.dependencies.auth.get_user_id_by_token", mock_get_token),
-        patch("src.gRPC.client.get_login_by_user_id", mock_get_login_by_user_id),
+        patch("src.api.v1.messages.get_login_by_user_id", mock_get_login_by_user_id),
     ):
         resp1 = await db_client.get(
             _messages_endpoint(dialog_id),

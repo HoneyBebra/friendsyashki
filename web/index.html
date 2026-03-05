@@ -153,8 +153,11 @@ input::placeholder{color:var(--text2)}
 
 <script>
 let currentUserId = null;
+let currentUserLogin = null;
 let currentDialogId = null;
 let dialogs = [];
+let ws = null;
+let wsReconnectTimer = null;
 
 function showLogin() {
   document.getElementById('signup-form').style.display = 'none';
@@ -233,10 +236,55 @@ async function doLogin() {
 
 async function doLogout() {
   await api('/auth/api/v1/users/logout', { method: 'POST' });
+  if (ws) try { ws.close(); } catch (e) {}
+  ws = null;
   currentUserId = null;
+  currentUserLogin = null;
   currentDialogId = null;
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function getAccessToken() {
+  const m = document.cookie.match(/access_token=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function connectWs() {
+  const token = getAccessToken();
+  if (!token) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = proto + '//' + location.host + '/messenger/ws?access_token=' + encodeURIComponent(token);
+  if (ws) try { ws.close(); } catch (e) {}
+  ws = new WebSocket(url);
+  ws.onmessage = function (ev) {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.event === 'new_message' && data.payload && data.payload.dialog_id === currentDialogId) {
+        appendMessage(data.payload);
+      }
+    } catch (e) {}
+  };
+  ws.onclose = function () {
+    ws = null;
+    if (currentUserId && wsReconnectTimer === null) {
+      wsReconnectTimer = setTimeout(function () { wsReconnectTimer = null; connectWs(); }, 2000);
+    }
+  };
+}
+
+function appendMessage(m) {
+  if (!currentDialogId || m.dialog_id !== currentDialogId) return;
+  const container = document.getElementById('messages');
+  if (m.id && container.querySelector('[data-message-id="' + m.id + '"]')) return;
+  const el = document.createElement('div');
+  if (m.id) el.dataset.messageId = m.id;
+  const mine = m.sender_login === currentUserLogin;
+  el.className = 'msg ' + (mine ? 'mine' : 'theirs');
+  const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  el.innerHTML = esc(m.text) + '<div class="time">' + t + '</div>';
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
 }
 
 async function enterApp() {
@@ -244,9 +292,11 @@ async function enterApp() {
   if (!res.ok) return;
   const data = await res.json();
   currentUserId = data.id;
+  currentUserLogin = data.login || null;
   document.getElementById('user-display').textContent = data.login || data.id;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
+  connectWs();
   await loadDialogs();
 }
 
@@ -316,7 +366,8 @@ async function loadMessages() {
   container.innerHTML = '';
   msgs.forEach(m => {
     const el = document.createElement('div');
-    const mine = m.sender_id === currentUserId;
+    if (m.id) el.dataset.messageId = m.id;
+    const mine = (m.sender_login !== undefined && m.sender_login === currentUserLogin) || m.sender_id === currentUserId;
     el.className = 'msg ' + (mine ? 'mine' : 'theirs');
     const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     el.innerHTML = `${esc(m.text)}<div class="time">${t}</div>`;
@@ -336,7 +387,9 @@ async function sendMessage() {
     body: { text, client_message_id: clientId }
   });
   if (res.ok || res.status === 201) {
-    await loadMessages();
+    const data = res.json ? await res.json().catch(() => null) : null;
+    if (data && currentDialogId) appendMessage(data);
+    else await loadMessages();
   }
 }
 

@@ -359,9 +359,10 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 - gRPC-клиент к auth (`GetUserInfoByToken`, `GetUserByLogin`, `GetUserById`) + FastAPI dependency `get_current_user_id`; резолв логина по user_id через `get_login_by_user_id`
 - `POST /dialogs/direct` — создание/получение 1:1 диалога (слои: schemas → service → repository)
 - `GET /dialogs` — список диалогов текущего пользователя, отсортированных по `updated_at` DESC
-- `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге
+- `POST /dialogs/{dialog_id}/messages` — отправка текстового сообщения с идемпотентностью по `client_message_id` и проверкой участия в диалоге; после сохранения рассылается событие `new_message` по WebSocket участникам диалога
 - `GET /dialogs/{dialog_id}/messages` — история сообщений с пагинацией (limit 1-100, offset 0-10000), доступ только участникам диалога, порядок по `created_at ASC`
-- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs, messages, message history)
+- WebSocket: endpoint `GET /messenger/ws` (v0.1.7), аутентификация по query `access_token` или cookie `access_token`, хранение соединений по `user_id` в `ConnectionManager`; при новом сообщении рассылка `{"event": "new_message", "payload": MessageResponse}` всем подключённым участникам диалога
+- Тесты: `pytest` + `httpx` + `testcontainers` (health, миграции, CRUD, auth dependency, dialogs, messages, message history, WebSocket: два клиента получают new_message, reconnect)
 
 ### 5.1 Переменные окружения
 
@@ -460,6 +461,7 @@ alembic downgrade -1
 | `test_auth_dependency.py` | Auth dependency: valid token → 200, invalid/expired/blacklisted → 403, missing → 422, unavailable → 503 |
 | `test_dialogs.py` | POST /dialogs/direct: create, idempotent get, self-dialog → 400, not found → 404; GET /dialogs: user isolation, sorted by activity |
 | `test_messages.py` | POST /dialogs/{id}/messages: send → 201, idempotent, foreign → 403; GET /dialogs/{id}/messages: limit/offset, deterministic order, participants only, 404 not found |
+| `test_00_websocket.py` | WebSocket: два клиента в диалоге получают событие new_message при POST сообщения; после переподключения клиент снова получает события |
 
 Инфра: `testcontainers` (PostgreSQL 17.4), alembic via subprocess, async sessions. `db_client` fixture overrides `get_session` for integration tests.
 
@@ -472,7 +474,7 @@ alembic downgrade -1
 | `GET` | `/messenger/api/v1/dialogs/{id}/messages` | История сообщений | ✅ реализован |
 | `POST` | `/messenger/api/v1/dialogs/{id}/messages` | Отправить сообщение | ✅ реализован |
 | `POST` | `/messenger/api/v1/messages/{id}/read` | Отметить как прочитанное | планируется |
-| `WS` | `/messenger/api/v1/ws` | WebSocket для realtime | планируется |
+| `WS` | `/messenger/ws` | WebSocket для realtime (new_message) | ✅ реализован |
 
 ### 5.5 POST /dialogs/direct (TASK-004)
 

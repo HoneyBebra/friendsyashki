@@ -12,6 +12,7 @@ from src.core.config import settings
 from src.core.logger import LOGGING
 from src.db.postgres import engine
 from src.gRPC.client import close_auth_grpc_channel, open_auth_grpc_channel
+from src.ws.router import router as ws_router
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ router.include_router(health_router)
 router.include_router(dialogs_router)
 router.include_router(messages_router)
 app.include_router(router)
+app.include_router(ws_router, prefix="/messenger")
 
 if __name__ == "__main__":
     uvicorn.run(

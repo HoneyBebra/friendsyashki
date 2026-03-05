@@ -25,7 +25,7 @@ class MessagesService:
         sender_id: UUID,
         text: str,
         client_message_id: str,
-    ) -> Message:
+    ) -> tuple[Message, list[UUID]]:
         dialog = await self.dialogs_repository.get_by_id(dialog_id)
         if dialog is None:
             raise DialogNotFoundError(dialog_id)
@@ -39,15 +39,16 @@ class MessagesService:
         )
         if existing is not None:
             if existing.dialog_id == dialog_id and existing.sender_id == sender_id:
-                return existing
+                return existing, list(participant_ids)
             raise ClientMessageIdConflictError(client_message_id)
 
-        return await self.messages_repository.create(
+        message = await self.messages_repository.create(
             dialog_id=dialog_id,
             sender_id=sender_id,
             text=text,
             client_message_id=client_message_id,
         )
+        return message, list(participant_ids)
 
     async def get_messages(
         self,

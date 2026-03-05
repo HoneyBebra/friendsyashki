@@ -15,6 +15,7 @@ from src.repositories.dialogs import DialogsRepository
 from src.repositories.messages import MessagesRepository
 from src.schemas.v1.messages import MessageResponse, MessagesListResponse, SendMessageRequest
 from src.services.messages import MessagesService
+from src.ws.manager import ws_manager
 
 router = APIRouter(prefix="/dialogs", tags=["messages"])
 
@@ -96,7 +97,7 @@ async def send_message(
     service: MessagesService = Depends(get_messages_service),
 ) -> MessageResponse:
     try:
-        message = await service.send_message(
+        message, participant_ids = await service.send_message(
             dialog_id=dialog_id,
             sender_id=current_user_id,
             text=body.text,
@@ -123,4 +124,9 @@ async def send_message(
             detail="Authentication service unavailable",
         ) from exc
 
-    return await _message_to_response(message)
+    response = await _message_to_response(message)
+    await ws_manager.broadcast_to_users(
+        participant_ids,
+        {"event": "new_message", "payload": response.model_dump(mode="json")},
+    )
+    return response
