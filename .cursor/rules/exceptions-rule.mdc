@@ -1,0 +1,19 @@
+---
+description: Всегда, когда ты захочешь обработать ошибку через try except
+alwaysApply: false
+---
+Никогда не обрабатывай ошибки так:
+```python
+except Exception:
+```
+
+Либо обрабатывай конкретную ошибку:
+```python
+except TypeError:
+```
+
+Либо используй объект ошибки (например в логах)
+```python
+except Exception as e:
+    ... (какое-то использование e)
+```
