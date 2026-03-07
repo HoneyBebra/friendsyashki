@@ -17,7 +17,6 @@ COPY alembic.ini ./
 RUN  python3 -m pip install -r requirements.txt
 
 COPY src src
-COPY .env src/.env
 
 RUN  groupadd -r ${APP_GROUP} && \
      useradd -d ${APP_DIR} -r -g ${APP_GROUP} ${APP_USER} && \

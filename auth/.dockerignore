@@ -1,0 +1,6 @@
+.env
+.env.*
+infra/volumes/
+__pycache__
+*.pyc
+.git
