@@ -1,7 +1,5 @@
-"""WebSocket endpoint: подключение по токену, подписка на события по user_id."""
+"""WebSocket endpoint: аутентификация по cookie до accept(), подписка на события по user_id."""
 
-import asyncio
-import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -13,29 +11,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_AUTH_TIMEOUT_SECONDS = 5
-
 
 @router.websocket("/ws")
 async def websocket_connect(websocket: WebSocket) -> None:
-    await websocket.accept()
-
-    # Ожидаем первое сообщение с токеном (JSON: {"token": "..."})
-    try:
-        raw = await asyncio.wait_for(
-            websocket.receive_text(),
-            timeout=_AUTH_TIMEOUT_SECONDS,
-        )
-    except (asyncio.TimeoutError, WebSocketDisconnect):
-        await websocket.close(code=4001, reason="Auth timeout")
-        return
-
-    try:
-        data = json.loads(raw)
-        token = data.get("token") if isinstance(data, dict) else None
-    except (json.JSONDecodeError, TypeError):
-        token = None
-
+    # Аутентификация ДО accept() — неаутентифицированные соединения отклоняются на уровне HTTP
+    token = websocket.cookies.get("access_token")
     if not token:
         await websocket.close(code=4001, reason="Missing access_token")
         return
@@ -46,6 +26,8 @@ async def websocket_connect(websocket: WebSocket) -> None:
         logger.warning("WS auth failed: %s", e)
         await websocket.close(code=4003, reason="Invalid credentials")
         return
+
+    await websocket.accept()
 
     ws_manager.register(user_id, websocket)
     try:

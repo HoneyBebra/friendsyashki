@@ -63,24 +63,11 @@ async def _run_ws_connection(
         "server": ("testserver", 80),
         "client": ("test", 0),
         "state": {},
-        "headers": [],
+        "headers": [(b"cookie", f"access_token={token}".encode())],
         "subprotocols": [],
     }
 
-    # После websocket.connect отправляем токен первым сообщением
-    auth_sent = False
-
     async def receive() -> dict[str, Any]:
-        nonlocal auth_sent
-        if not auth_sent:
-            msg = await receive_queue.get()
-            if msg.get("type") == "websocket.connect":
-                auth_sent = True
-                return msg
-            return msg
-        if not hasattr(receive, "_token_sent"):
-            receive._token_sent = True  # type: ignore[attr-defined]
-            return {"type": "websocket.receive", "text": json.dumps({"token": token})}
         return await receive_queue.get()
 
     async def send(message: dict[str, Any]) -> None:

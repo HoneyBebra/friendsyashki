@@ -244,21 +244,11 @@ async function doLogout() {
   document.getElementById('auth-screen').style.display = 'flex';
 }
 
-function getAccessToken() {
-  const m = document.cookie.match(/access_token=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
 function connectWs() {
-  const token = getAccessToken();
-  if (!token) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = proto + '//' + location.host + '/messenger/ws';
   if (ws) try { ws.close(); } catch (e) {}
   ws = new WebSocket(url);
-  ws.onopen = function () {
-    ws.send(JSON.stringify({ token: token }));
-  };
   ws.onmessage = function (ev) {
     try {
       const data = JSON.parse(ev.data);

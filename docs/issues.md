@@ -65,7 +65,7 @@ const url = proto + '//' + location.host + '/messenger/ws?access_token=' + encod
 
 ---
 
-### 6. WebSocket accept() до аутентификации
+### 6. ~~WebSocket accept() до аутентификации~~ ✅ ИСПРАВЛЕНО (2026-03-08)
 
 - **Файл:** `messenger/src/ws/router.py`, строки 37-38
 - **Категория:** Security (Broken Authentication)
@@ -80,6 +80,8 @@ token = _get_token_from_scope(websocket.scope)  # потом проверка
 **Импакт:** DoS через массовое открытие неаутентифицированных WS-соединений.
 
 **Рекомендация:** Аутентифицировать до `accept()`. При невалидном токене возвращать HTTP 403.
+
+**Исправление:** Аутентификация перенесена до `accept()`. Токен читается из cookie `access_token` через `websocket.cookies` (доступен в ASGI scope до принятия соединения). Если cookie отсутствует или токен невалиден — соединение закрывается без `accept()`. Веб-клиент обновлён: убрана отправка токена первым сообщением (cookie отправляется автоматически с WebSocket upgrade request).
 
 ---
 
