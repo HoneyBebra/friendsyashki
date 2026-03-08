@@ -1,9 +1,8 @@
 """WebSocket endpoint: подключение по токену, подписка на события по user_id."""
 
+import asyncio
+import json
 import logging
-from collections.abc import MutableMapping
-from typing import Any
-from urllib.parse import parse_qs
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -14,33 +13,33 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-def _get_token_from_scope(scope: MutableMapping[str, Any]) -> str | None:
-    """Достаёт access_token из query string или из cookie."""
-    query_string = scope.get("query_string", b"").decode("latin-1")
-    if query_string:
-        parsed = parse_qs(query_string)
-        tokens = parsed.get("access_token")
-        if tokens:
-            return tokens[0]
-    headers = scope.get("headers") or []
-    for name, value in headers:
-        if name.lower() == b"cookie":
-            for part in value.decode("latin-1").split(";"):
-                part = part.strip()
-                if part.startswith("access_token="):
-                    return part.split("=", 1)[1].strip()
-            break
-    return None
+_AUTH_TIMEOUT_SECONDS = 5
 
 
 @router.websocket("/ws")
 async def websocket_connect(websocket: WebSocket) -> None:
     await websocket.accept()
-    token = _get_token_from_scope(websocket.scope)
+
+    # Ожидаем первое сообщение с токеном (JSON: {"token": "..."})
+    try:
+        raw = await asyncio.wait_for(
+            websocket.receive_text(),
+            timeout=_AUTH_TIMEOUT_SECONDS,
+        )
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await websocket.close(code=4001, reason="Auth timeout")
+        return
+
+    try:
+        data = json.loads(raw)
+        token = data.get("token") if isinstance(data, dict) else None
+    except (json.JSONDecodeError, TypeError):
+        token = None
+
     if not token:
         await websocket.close(code=4001, reason="Missing access_token")
         return
+
     try:
         user_id = await get_user_id_by_token(token)
     except Exception as e:  # noqa: BLE001

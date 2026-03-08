@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-from collections.abc import MutableMapping
 from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
@@ -53,12 +52,12 @@ async def _run_ws_connection(
     captured: list[dict[str, Any]],
 ) -> None:
     """Запустить один WS-коннект через ASGI в том же event loop; приходящие сообщения в captured."""
-    scope = {
+    scope: dict[str, Any] = {
         "type": "websocket",
         "asgi": {"version": "3.0", "spec_version": "2.0"},
         "path": "/messenger/ws",
         "raw_path": b"/messenger/ws",
-        "query_string": f"access_token={token}".encode(),
+        "query_string": b"",
         "root_path": "",
         "scheme": "ws",
         "server": ("testserver", 80),
@@ -68,10 +67,23 @@ async def _run_ws_connection(
         "subprotocols": [],
     }
 
-    async def receive() -> MutableMapping[str, Any]:
+    # После websocket.connect отправляем токен первым сообщением
+    auth_sent = False
+
+    async def receive() -> dict[str, Any]:
+        nonlocal auth_sent
+        if not auth_sent:
+            msg = await receive_queue.get()
+            if msg.get("type") == "websocket.connect":
+                auth_sent = True
+                return msg
+            return msg
+        if not hasattr(receive, "_token_sent"):
+            receive._token_sent = True  # type: ignore[attr-defined]
+            return {"type": "websocket.receive", "text": json.dumps({"token": token})}
         return await receive_queue.get()
 
-    async def send(message: MutableMapping[str, Any]) -> None:
+    async def send(message: dict[str, Any]) -> None:
         if message.get("type") == "websocket.send":
             text = message.get("text")
             if text:
