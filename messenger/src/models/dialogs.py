@@ -23,9 +23,7 @@ class DialogType(str, enum.Enum):
 class Dialog(BaseModel):
     __tablename__ = "dialogs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     type: Mapped[DialogType] = mapped_column(
         Enum(DialogType, name="dialog_type", native_enum=False),
         nullable=False,
@@ -35,6 +33,4 @@ class Dialog(BaseModel):
     participants: Mapped[list[DialogParticipant]] = relationship(
         back_populates="dialog", lazy="selectin"
     )
-    messages: Mapped[list[Message]] = relationship(
-        back_populates="dialog", lazy="noload"
-    )
+    messages: Mapped[list[Message]] = relationship(back_populates="dialog", lazy="noload")

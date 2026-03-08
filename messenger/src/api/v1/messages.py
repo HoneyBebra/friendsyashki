@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.dependencies.auth import get_current_user_id
 from src.exceptions.dialogs import AuthServiceUnavailableError
@@ -135,10 +136,8 @@ async def send_message(
     for user_id in connected_ids:
         if user_id != current_user_id:
             try:
-                await service.messages_repository.set_delivered_if_sent(
-                    message.id, user_id
-                )
-            except Exception as e:
+                await service.messages_repository.set_delivered_if_sent(message.id, user_id)
+            except (OSError, SQLAlchemyError) as e:
                 logger.warning(
                     "Failed to set delivered for message_id=%s user_id=%s: %s",
                     message.id,

@@ -1,6 +1,8 @@
 """WebSocket endpoint: подключение по токену, подписка на события по user_id."""
 
 import logging
+from collections.abc import MutableMapping
+from typing import Any
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _get_token_from_scope(scope: dict) -> str | None:
+def _get_token_from_scope(scope: MutableMapping[str, Any]) -> str | None:
     """Достаёт access_token из query string или из cookie."""
     query_string = scope.get("query_string", b"").decode("latin-1")
     if query_string:

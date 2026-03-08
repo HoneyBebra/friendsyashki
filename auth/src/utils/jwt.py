@@ -9,9 +9,9 @@ from src.exceptions.jwt import WrongTokenType
 
 
 async def create_token(
-        sub: UUID | str,
-        token_type: Literal["access", "refresh"],
-        login: str | None = None,
+    sub: UUID | str,
+    token_type: Literal["access", "refresh"],
+    login: str | None = None,
 ) -> str:
     iat = time.time()
     raw_data: dict[str, object] = {

@@ -34,9 +34,7 @@ class MessagesService:
         if sender_id not in participant_ids:
             raise NotDialogParticipantError(sender_id, dialog_id)
 
-        existing = await self.messages_repository.get_by_client_message_id(
-            client_message_id
-        )
+        existing = await self.messages_repository.get_by_client_message_id(client_message_id)
         if existing is not None:
             if existing.dialog_id == dialog_id and existing.sender_id == sender_id:
                 return existing, list(participant_ids)

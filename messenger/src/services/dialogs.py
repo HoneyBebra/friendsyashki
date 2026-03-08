@@ -1,6 +1,6 @@
 from uuid import UUID
 
-import grpc  # type: ignore[import-not-found]
+import grpc  # type: ignore[import-untyped]
 
 from src.exceptions.dialogs import AuthServiceUnavailableError, SelfDialogError, UserNotFoundError
 from src.gRPC.client import get_user_id_by_login
@@ -15,17 +15,13 @@ class DialogsService:
     async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
         return await self.dialogs_repository.get_user_dialogs(user_id)
 
-    async def create_or_get_direct(
-        self, current_user_id: UUID, target_login: str
-    ) -> Dialog:
+    async def create_or_get_direct(self, current_user_id: UUID, target_login: str) -> Dialog:
         target_user_id = await self._resolve_target_user(target_login)
 
         if current_user_id == target_user_id:
             raise SelfDialogError
 
-        existing = await self.dialogs_repository.get_direct_dialog(
-            current_user_id, target_user_id
-        )
+        existing = await self.dialogs_repository.get_direct_dialog(current_user_id, target_user_id)
         if existing is not None:
             return existing
 

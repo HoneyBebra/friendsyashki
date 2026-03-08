@@ -36,9 +36,7 @@ class TestDialogsRepository:
         found = await repo.get_by_id(uuid.uuid4())
         assert found is None
 
-    async def test_add_participant_and_get_user_dialogs(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_add_participant_and_get_user_dialogs(self, db_session: AsyncSession) -> None:
         repo = DialogsRepository(session=db_session)
         dialog = await repo.create(dialog_type="direct")
         user_id = uuid.uuid4()
@@ -101,9 +99,7 @@ class TestMessagesRepository:
         assert messages[0].text == "first"
         assert messages[1].text == "second"
 
-    async def test_get_by_dialog_with_pagination(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_get_by_dialog_with_pagination(self, db_session: AsyncSession) -> None:
         dialog_repo = DialogsRepository(session=db_session)
         dialog = await dialog_repo.create(dialog_type="direct")
         sender = uuid.uuid4()

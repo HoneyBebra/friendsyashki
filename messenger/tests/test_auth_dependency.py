@@ -2,7 +2,7 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
-import grpc  # type: ignore[import-not-found]
+import grpc  # type: ignore[import-untyped]
 import pytest
 from httpx import AsyncClient
 
@@ -33,9 +33,7 @@ def _register_protected_route() -> Generator[None, None, None]:
     app.include_router(router)
 
 
-def _make_aio_rpc_error(
-    code: grpc.StatusCode, details: str = ""
-) -> grpc.aio.AioRpcError:
+def _make_aio_rpc_error(code: grpc.StatusCode, details: str = "") -> grpc.aio.AioRpcError:
     return grpc.aio.AioRpcError(
         code=code,
         initial_metadata=grpc.aio.Metadata(),
@@ -62,9 +60,7 @@ async def test_valid_token_grants_access(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_invalid_token_returns_403(client: AsyncClient) -> None:
     mock_get_user_id = AsyncMock(
-        side_effect=_make_aio_rpc_error(
-            grpc.StatusCode.PERMISSION_DENIED, "Token is invalid"
-        )
+        side_effect=_make_aio_rpc_error(grpc.StatusCode.PERMISSION_DENIED, "Token is invalid")
     )
 
     with patch("src.dependencies.auth.get_user_id_by_token", mock_get_user_id):
@@ -80,9 +76,7 @@ async def test_invalid_token_returns_403(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_expired_token_returns_403(client: AsyncClient) -> None:
     mock_get_user_id = AsyncMock(
-        side_effect=_make_aio_rpc_error(
-            grpc.StatusCode.PERMISSION_DENIED, "Token expired"
-        )
+        side_effect=_make_aio_rpc_error(grpc.StatusCode.PERMISSION_DENIED, "Token expired")
     )
 
     with patch("src.dependencies.auth.get_user_id_by_token", mock_get_user_id):
@@ -98,9 +92,7 @@ async def test_expired_token_returns_403(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_blacklisted_token_returns_403(client: AsyncClient) -> None:
     mock_get_user_id = AsyncMock(
-        side_effect=_make_aio_rpc_error(
-            grpc.StatusCode.PERMISSION_DENIED, "Token is blacklisted"
-        )
+        side_effect=_make_aio_rpc_error(grpc.StatusCode.PERMISSION_DENIED, "Token is blacklisted")
     )
 
     with patch("src.dependencies.auth.get_user_id_by_token", mock_get_user_id):
@@ -121,9 +113,7 @@ async def test_missing_token_returns_422(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_auth_unavailable_returns_503(client: AsyncClient) -> None:
-    mock_get_user_id = AsyncMock(
-        side_effect=_make_aio_rpc_error(grpc.StatusCode.UNAVAILABLE)
-    )
+    mock_get_user_id = AsyncMock(side_effect=_make_aio_rpc_error(grpc.StatusCode.UNAVAILABLE))
 
     with patch("src.dependencies.auth.get_user_id_by_token", mock_get_user_id):
         response = await client.get(

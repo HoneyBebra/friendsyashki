@@ -17,24 +17,16 @@ if TYPE_CHECKING:
 class Message(BaseModel):
     __tablename__ = "messages"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     dialog_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("dialogs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    sender_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
-    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    client_message_id: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False
-    )
+    client_message_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
 
     dialog: Mapped[Dialog] = relationship(back_populates="messages")
-    statuses: Mapped[list[MessageStatus]] = relationship(
-        back_populates="message", lazy="noload"
-    )
+    statuses: Mapped[list[MessageStatus]] = relationship(back_populates="message", lazy="noload")

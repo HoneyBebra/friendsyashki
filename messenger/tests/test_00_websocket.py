@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from collections.abc import MutableMapping
 from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
@@ -67,10 +68,10 @@ async def _run_ws_connection(
         "subprotocols": [],
     }
 
-    async def receive() -> dict[str, Any]:
+    async def receive() -> MutableMapping[str, Any]:
         return await receive_queue.get()
 
-    async def send(message: dict[str, Any]) -> None:
+    async def send(message: MutableMapping[str, Any]) -> None:
         if message.get("type") == "websocket.send":
             text = message.get("text")
             if text:
@@ -114,9 +115,7 @@ async def test_two_clients_receive_new_message(db_client: AsyncClient) -> None:
             await asyncio.sleep(0.05)
             if len(ws_manager._connections) >= 2:
                 break
-        assert len(ws_manager._connections) >= 2, (
-            "WS connections not registered in time"
-        )
+        assert len(ws_manager._connections) >= 2, "WS connections not registered in time"
 
         with (
             patch("src.dependencies.auth.get_user_id_by_token", mock_get_user),

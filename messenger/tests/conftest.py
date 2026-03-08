@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     async_sessionmaker,
     create_async_engine,
 )
-from testcontainers.postgres import PostgresContainer  # noqa: E402
+from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]  # noqa: E402
 
 from src.main import app  # noqa: E402
 
@@ -49,10 +49,7 @@ def postgres_dsn(postgres_container: PostgresContainer) -> str:
     pg = postgres_container
     host = pg.get_container_host_ip()
     port = pg.get_exposed_port(5432)
-    return (
-        f"postgresql+asyncpg://{pg.username}:{pg.password}"
-        f"@{host}:{port}/{pg.dbname}"
-    )
+    return f"postgresql+asyncpg://{pg.username}:{pg.password}" f"@{host}:{port}/{pg.dbname}"
 
 
 @pytest.fixture(scope="session")
@@ -61,17 +58,19 @@ def alembic_env(postgres_container: PostgresContainer) -> dict[str, str]:
     host = pg.get_container_host_ip()
     port = pg.get_exposed_port(5432)
     env = os.environ.copy()
-    env.update({
-        "POSTGRES_USER": pg.username,
-        "POSTGRES_PASSWORD": pg.password,
-        "POSTGRES_DB": pg.dbname,
-        "POSTGRES_HOST": host,
-        "POSTGRES_PORT": str(port),
-        "POSTGRES_ECHO": "false",
-        "APP_NAME": "messenger-test",
-        "APP_DESCRIPTION": "test",
-        "APP_VERSION": "0.0.1",
-    })
+    env.update(
+        {
+            "POSTGRES_USER": pg.username,
+            "POSTGRES_PASSWORD": pg.password,
+            "POSTGRES_DB": pg.dbname,
+            "POSTGRES_HOST": host,
+            "POSTGRES_PORT": str(port),
+            "POSTGRES_ECHO": "false",
+            "APP_NAME": "messenger-test",
+            "APP_DESCRIPTION": "test",
+            "APP_VERSION": "0.0.1",
+        }
+    )
     return env
 
 
@@ -88,9 +87,7 @@ def apply_migrations(alembic_env: dict[str, str]) -> None:
 
 
 @pytest_asyncio.fixture
-async def db_session(
-    postgres_dsn: str, apply_migrations: None
-) -> AsyncIterator[AsyncSession]:
+async def db_session(postgres_dsn: str, apply_migrations: None) -> AsyncIterator[AsyncSession]:
     engine = create_async_engine(postgres_dsn, echo=False)
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with factory() as session:
@@ -99,15 +96,11 @@ async def db_session(
 
 
 @pytest_asyncio.fixture
-async def db_client(
-    postgres_dsn: str, apply_migrations: None
-) -> AsyncIterator[AsyncClient]:
+async def db_client(postgres_dsn: str, apply_migrations: None) -> AsyncIterator[AsyncClient]:
     from src.db.postgres import get_session as _orig_get_session  # noqa: F811
 
     test_engine = create_async_engine(postgres_dsn, echo=False)
-    test_factory = async_sessionmaker(
-        bind=test_engine, expire_on_commit=False
-    )
+    test_factory = async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
     async def _override_get_session() -> AsyncIterator[AsyncSession]:
         async with test_factory() as session:

@@ -17,22 +17,22 @@ class UsersRepository(BaseUsersRepository):
 
     @retry(**settings.backoff_decorator_sqlalchemy_settings)
     async def create(
-            self,
-            login: str,
-            password_hash: str,
-            encrypted_email: str | None = None,
-            encrypted_phone_number: str | None = None,
-            email_hash: str | None = None,
-            phone_number_hash: str | None = None,
+        self,
+        login: str,
+        password_hash: str,
+        encrypted_email: str | None = None,
+        encrypted_phone_number: str | None = None,
+        email_hash: str | None = None,
+        phone_number_hash: str | None = None,
     ) -> Users:
         user = Users()
 
         user.login = login
         user.password = password_hash
-        user.encrypted_email = encrypted_email
-        user.encrypted_phone_number = encrypted_phone_number
-        user.email_hash = email_hash
-        user.phone_number_hash = phone_number_hash
+        user.encrypted_email = encrypted_email  # type: ignore[assignment]
+        user.encrypted_phone_number = encrypted_phone_number  # type: ignore[assignment]
+        user.email_hash = email_hash  # type: ignore[assignment]
+        user.phone_number_hash = phone_number_hash  # type: ignore[assignment]
 
         self.session.add(user)
         await self.session.commit()
@@ -42,13 +42,13 @@ class UsersRepository(BaseUsersRepository):
 
     @retry(**settings.backoff_decorator_sqlalchemy_settings)
     async def read(
-            self,
-            login: str | None = None,
-            phone_number_hash: str | None = None,
-            email_hash: str | None = None,
-            limit: int | None = None,
-            offset: int | None = None,
-            order_by: str | None = None,
+        self,
+        login: str | None = None,
+        phone_number_hash: str | None = None,
+        email_hash: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        order_by: str | None = None,
     ) -> list[Users]:
         query = select(Users)
 
@@ -75,14 +75,13 @@ class UsersRepository(BaseUsersRepository):
 
     @retry(**settings.backoff_decorator_sqlalchemy_settings)
     async def update(  # type: ignore[empty-body]
-            self,
-            user_id: UUID,
-            login: str | None = None,
-            password: str | None = None,
-            phone_number: str | None = None,
-            email: str | None = None,
-    ) -> Users:
-        ...
+        self,
+        user_id: UUID,
+        login: str | None = None,
+        password: str | None = None,
+        phone_number: str | None = None,
+        email: str | None = None,
+    ) -> Users: ...
 
     @retry(**settings.backoff_decorator_sqlalchemy_settings)
     async def delete(self, user_id: UUID) -> None:  # type: ignore[empty-body]

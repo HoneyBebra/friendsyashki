@@ -41,9 +41,7 @@ class DialogsRepository(BaseDialogsRepository):
         return dialog
 
     async def get_by_id(self, dialog_id: UUID) -> Dialog | None:
-        result = await self.session.execute(
-            select(Dialog).where(Dialog.id == dialog_id)
-        )
+        result = await self.session.execute(select(Dialog).where(Dialog.id == dialog_id))
         return result.scalar_one_or_none()
 
     async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
@@ -60,9 +58,7 @@ class DialogsRepository(BaseDialogsRepository):
         self.session.add(participant)
         await self.session.commit()
 
-    async def get_direct_dialog(
-        self, user_id_1: UUID, user_id_2: UUID
-    ) -> Dialog | None:
+    async def get_direct_dialog(self, user_id_1: UUID, user_id_2: UUID) -> Dialog | None:
         p1 = aliased(DialogParticipant)
         p2 = aliased(DialogParticipant)
         result = await self.session.execute(

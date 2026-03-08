@@ -36,8 +36,8 @@ async def get_refresh_token_data(
 
 
 async def __get_token_data(
-        token: str | None,
-        user_service: UsersService,
+    token: str | None,
+    user_service: UsersService,
 ) -> tuple[UserJwtSchema, str]:
     token = await __check_raw_token(token)
     await __raise_if_jwt_in_blacklist(token, user_service)

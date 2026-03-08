@@ -166,9 +166,7 @@ async def test_get_messages_with_limit_and_offset(db_client: AsyncClient) -> Non
     dialog_id = dialog["id"]
 
     for i in range(5):
-        await _send_message(
-            db_client, dialog_id, user_a, f"msg-{i}", f"get-lo-{uuid4()}"
-        )
+        await _send_message(db_client, dialog_id, user_a, f"msg-{i}", f"get-lo-{uuid4()}")
 
     mock_get_token = AsyncMock(return_value=user_a)
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
@@ -206,9 +204,7 @@ async def test_get_messages_deterministic_order(db_client: AsyncClient) -> None:
     dialog_id = dialog["id"]
 
     for i in range(3):
-        await _send_message(
-            db_client, dialog_id, user_a, f"order-{i}", f"order-{uuid4()}"
-        )
+        await _send_message(db_client, dialog_id, user_a, f"order-{i}", f"order-{uuid4()}")
 
     mock_get_token = AsyncMock(return_value=user_a)
     mock_get_login_by_user_id = AsyncMock(side_effect=_mock_login_by_uid)
@@ -241,9 +237,7 @@ async def test_get_messages_only_participants_allowed(db_client: AsyncClient) ->
     dialog = await _create_dialog(db_client, user_a, user_b)
     dialog_id = dialog["id"]
 
-    await _send_message(
-        db_client, dialog_id, user_a, "secret", f"secret-{uuid4()}"
-    )
+    await _send_message(db_client, dialog_id, user_a, "secret", f"secret-{uuid4()}")
 
     mock_get_token = AsyncMock(return_value=outsider)
     with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):

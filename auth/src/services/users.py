@@ -15,9 +15,9 @@ from src.utils.jwt import create_token
 
 class UsersService:
     def __init__(
-            self,
-            users_repository: UsersRepository = Depends(),
-            jwt_token_repository: JwtTokenRepository = Depends(),
+        self,
+        users_repository: UsersRepository = Depends(),
+        jwt_token_repository: JwtTokenRepository = Depends(),
     ) -> None:
         self.users_repository = users_repository
         self.jwt_token_repository = jwt_token_repository
@@ -68,9 +68,9 @@ class UsersService:
         return None
 
     async def add_token_to_blacklist(
-            self,
-            token: str,
-            expires_in: int,
+        self,
+        token: str,
+        expires_in: int,
     ) -> None:
         await self.jwt_token_repository.set_token_to_blacklist(
             token=token,
@@ -78,9 +78,9 @@ class UsersService:
         )
 
     async def __get_personal_or_raise_if_exists(
-            self,
-            raw_data: str | None,
-            field_name_for_check_existing_in_db: str,
+        self,
+        raw_data: str | None,
+        field_name_for_check_existing_in_db: str,
     ) -> tuple[str | None, str | None]:
         if raw_data is not None:
             data_hash = hash_user_data(raw_data)
@@ -97,9 +97,9 @@ class UsersService:
 
     @staticmethod
     async def add_tokens_to_response(
-            response: Response,
-            user_id: str | UUID,
-            login: str | None = None,
+        response: Response,
+        user_id: str | UUID,
+        login: str | None = None,
     ) -> Response:
         uid = str(user_id)
         access_token = await create_token(

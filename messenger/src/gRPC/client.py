@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
-import grpc  # type: ignore[import-not-found]
+import grpc  # type: ignore[import-untyped]
 
 from src.core.config import settings
 from src.gRPC.protos import user_pb2, user_pb2_grpc
@@ -50,7 +50,7 @@ def get_auth_stub() -> user_pb2_grpc.UserStub:
 async def get_user_id_by_token(access_token: str) -> UUID:
     stub = get_auth_stub()
     request = user_pb2.GetUserInfoByTokenRequest(access_token=access_token)  # type: ignore[attr-defined]
-    response: user_pb2.GetUserInfoByTokenResponse = await stub.GetUserInfoByToken(request)  # type: ignore[attr-defined]
+    response: user_pb2.GetUserInfoByTokenResponse = await stub.GetUserInfoByToken(request)  # type: ignore[name-defined]
     try:
         return UUID(response.id)
     except ValueError as e:
@@ -61,7 +61,7 @@ async def get_user_id_by_token(access_token: str) -> UUID:
 async def get_user_id_by_login(login: str) -> UUID:
     stub = get_auth_stub()
     request = user_pb2.GetUserByLoginRequest(login=login)  # type: ignore[attr-defined]
-    response: user_pb2.GetUserByLoginResponse = await stub.GetUserByLogin(request)  # type: ignore[attr-defined]
+    response: user_pb2.GetUserByLoginResponse = await stub.GetUserByLogin(request)  # type: ignore[name-defined]
     try:
         return UUID(response.id)
     except ValueError as e:
@@ -74,7 +74,7 @@ async def get_login_by_user_id(user_id: UUID) -> str:
     stub = get_auth_stub()
     request = user_pb2.GetUserByIdRequest(id=str(user_id))  # type: ignore[attr-defined]
     try:
-        response: user_pb2.GetUserByIdResponse = await stub.GetUserById(request)  # type: ignore[attr-defined]
+        response: user_pb2.GetUserByIdResponse = await stub.GetUserById(request)  # type: ignore[name-defined]
     except grpc.RpcError as e:
         logger.warning("Auth GetUserById failed for user_id=%s: %s", user_id, e)
         raise ValueError("User login not found") from e

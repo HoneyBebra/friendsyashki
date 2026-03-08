@@ -1,6 +1,6 @@
 from uuid import UUID
 
-import grpc  # type: ignore[import-not-found]
+import grpc  # type: ignore[import-untyped]
 from fastapi import Cookie, HTTPException, status
 
 from src.gRPC.client import get_user_id_by_token

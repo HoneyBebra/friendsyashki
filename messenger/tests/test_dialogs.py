@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-import grpc  # type: ignore[import-not-found]
+import grpc  # type: ignore[import-untyped]
 import pytest
 from httpx import AsyncClient
 
@@ -12,9 +12,7 @@ _ENDPOINT = "/messenger/api/v1/dialogs/direct"
 _LIST_ENDPOINT = "/messenger/api/v1/dialogs"
 
 
-def _make_aio_rpc_error(
-    code: grpc.StatusCode, details: str = ""
-) -> grpc.aio.AioRpcError:
+def _make_aio_rpc_error(code: grpc.StatusCode, details: str = "") -> grpc.aio.AioRpcError:
     return grpc.aio.AioRpcError(
         code=code,
         initial_metadata=grpc.aio.Metadata(),
@@ -117,9 +115,7 @@ async def test_target_login_not_found(
 ) -> None:
     mock_get_token = AsyncMock(return_value=_CURRENT_USER_ID)
     mock_get_login = AsyncMock(
-        side_effect=_make_aio_rpc_error(
-            grpc.StatusCode.NOT_FOUND, "User not found"
-        )
+        side_effect=_make_aio_rpc_error(grpc.StatusCode.NOT_FOUND, "User not found")
     )
 
     with (

@@ -18,9 +18,7 @@ class BaseDialogsRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def add_participant(
-        self, dialog_id: UUID, user_id: UUID
-    ) -> None:
+    async def add_participant(self, dialog_id: UUID, user_id: UUID) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -33,7 +31,5 @@ class BaseDialogsRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_direct_dialog(
-        self, user_id_1: UUID, user_id_2: UUID
-    ) -> Dialog | None:
+    async def get_direct_dialog(self, user_id_1: UUID, user_id_2: UUID) -> Dialog | None:
         raise NotImplementedError

@@ -17,18 +17,14 @@ if TYPE_CHECKING:
 class DialogParticipant(BaseModel):
     __tablename__ = "dialog_participants"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     dialog_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("dialogs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
-    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     joined_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     dialog: Mapped[Dialog] = relationship(back_populates="participants")

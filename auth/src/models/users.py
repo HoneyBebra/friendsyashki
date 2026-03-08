@@ -22,6 +22,4 @@ class Users(BaseModel):
     encrypted_email: Mapped[str] = mapped_column(nullable=True, unique=True)
     email_hash: Mapped[str] = mapped_column(nullable=True, unique=True)
 
-    __table_args__ = (
-        Index("ix_users_login", "login"),
-    )
+    __table_args__ = (Index("ix_users_login", "login"),)

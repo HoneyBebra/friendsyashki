@@ -17,7 +17,7 @@ engine = create_async_engine(
             "tcp_keepalives_interval": "30",
             "tcp_keepalives_count": "3",
         }
-    }
+    },
 )
 async_session = sessionmaker(bind=engine, class_=AsyncSession)  # type: ignore[call-overload]
 
