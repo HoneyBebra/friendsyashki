@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     auth_grpc_host: str = "auth"
     auth_grpc_port: int = 50051
+    auth_grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
 
     @property
     def postgres_dsn(self) -> str:

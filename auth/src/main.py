@@ -1,6 +1,8 @@
 # ruff: noqa: I001
 
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 import grpc
@@ -14,13 +16,39 @@ from src.core.logger import LOGGING
 from src.gRPC.protos import user_pb2_grpc
 from src.gRPC.server import get_grpc_session
 
+logger = logging.getLogger(__name__)
+
+
+def _load_grpc_server_credentials() -> grpc.ServerCredentials:
+    """Load TLS certificates for gRPC server."""
+    cert_path = Path(settings.grpc_tls_cert)
+    key_path = Path(settings.grpc_tls_key)
+    ca_path = Path(settings.grpc_tls_ca)
+
+    for path, label in [(cert_path, "certificate"), (key_path, "private key"), (ca_path, "CA")]:
+        if not path.is_file():
+            logger.critical("gRPC TLS %s not found: %s", label, path)
+            raise FileNotFoundError(f"gRPC TLS {label} not found: {path}")
+
+    private_key = key_path.read_bytes()
+    certificate_chain = cert_path.read_bytes()
+    root_ca = ca_path.read_bytes()
+
+    return grpc.ssl_server_credentials(
+        private_key_certificate_chain_pairs=[(private_key, certificate_chain)],
+        root_certificates=root_ca,
+        require_client_auth=False,
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator:
-
     server = grpc.aio.server()
     user_pb2_grpc.add_UserServicer_to_server(await get_grpc_session(), server)
-    server.add_insecure_port(f"[::]:{settings.grpc_port}")
+
+    credentials = _load_grpc_server_credentials()
+    server.add_secure_port(f"[::]:{settings.grpc_port}", credentials)
+    logger.info("gRPC server starting with TLS on port %s", settings.grpc_port)
 
     await server.start()
     yield

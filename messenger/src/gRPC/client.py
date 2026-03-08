@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from uuid import UUID
 
 import grpc  # type: ignore[import-not-found]
@@ -12,12 +13,23 @@ _channel: grpc.aio.Channel | None = None
 _stub: user_pb2_grpc.UserStub | None = None
 
 
+def _load_grpc_channel_credentials() -> grpc.ChannelCredentials:
+    """Load CA certificate for TLS connection to auth gRPC."""
+    ca_path = Path(settings.auth_grpc_tls_ca)
+    if not ca_path.is_file():
+        logger.critical("gRPC TLS CA certificate not found: %s", ca_path)
+        raise FileNotFoundError(f"gRPC TLS CA certificate not found: {ca_path}")
+    root_ca = ca_path.read_bytes()
+    return grpc.ssl_channel_credentials(root_certificates=root_ca)
+
+
 async def open_auth_grpc_channel() -> None:
     global _channel, _stub  # noqa: PLW0603
     target = f"{settings.auth_grpc_host}:{settings.auth_grpc_port}"
-    _channel = grpc.aio.insecure_channel(target)
+    credentials = _load_grpc_channel_credentials()
+    _channel = grpc.aio.secure_channel(target, credentials)
     _stub = user_pb2_grpc.UserStub(_channel)
-    logger.info("Auth gRPC channel opened: %s", target)
+    logger.info("Auth gRPC TLS channel opened: %s", target)
 
 
 async def close_auth_grpc_channel() -> None:

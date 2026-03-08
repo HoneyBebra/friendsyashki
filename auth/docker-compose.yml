@@ -8,6 +8,9 @@ services:
     build: .
     volumes:
       - ./migration/versions:/opt/app/migration/versions
+      - ../deploy/certs/grpc/ca.pem:/opt/app/certs/grpc/ca.pem:ro
+      - ../deploy/certs/grpc/server.pem:/opt/app/certs/grpc/server.pem:ro
+      - ../deploy/certs/grpc/server.key:/opt/app/certs/grpc/server.key:ro
 
   postgres_auth:
     image: postgres:17.4

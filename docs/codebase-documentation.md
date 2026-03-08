@@ -134,6 +134,9 @@ friendsyashki/
 | `REDIS_PASSWORD` | Пароль Redis |
 | `ENCRYPTION_USER_DATA_SECRET_KEY` | Ключ Fernet для шифрования PII |
 | `GRPC_PORT` | Порт gRPC сервера (default: 50051) |
+| `GRPC_TLS_CERT` | Путь к TLS-сертификату gRPC сервера |
+| `GRPC_TLS_KEY` | Путь к приватному ключу gRPC сервера |
+| `GRPC_TLS_CA` | Путь к CA-сертификату для gRPC |
 | `BACKOFF_RETRIES_COUNT` | Кол-во попыток reconnect (default: 10) |
 | `COOKIE_SECURE` | Флаг Secure для cookie (bool, default: `true`) |
 
@@ -146,13 +149,15 @@ friendsyashki/
 async def lifespan(app: FastAPI) -> AsyncIterator:
     server = grpc.aio.server()
     user_pb2_grpc.add_UserServicer_to_server(await get_grpc_session(), server)
-    server.add_insecure_port(f"[::]:{settings.grpc_port}")
+    credentials = _load_grpc_server_credentials()  # TLS: server.pem + server.key + ca.pem
+    server.add_secure_port(f"[::]:{settings.grpc_port}", credentials)
     await server.start()
     yield
     await server.stop()
 ```
 
 - FastAPI и gRPC-сервер запускаются **одновременно** в одном процессе
+- gRPC-сервер использует TLS (самоподписанные сертификаты, генерируются `deploy/certs/grpc/generate_certs.sh`)
 - Документация OpenAPI: `GET /auth/api/v1/openapi`
 - Default response class: `ORJSONResponse` (быстрее стандартного JSON)
 
@@ -382,13 +387,14 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 | `POSTGRES_ECHO` | Логировать SQL-запросы (bool, default: false) |
 | `AUTH_GRPC_HOST` | Хост gRPC-сервера auth (default: `auth`) |
 | `AUTH_GRPC_PORT` | Порт gRPC-сервера auth (default: `50051`) |
+| `AUTH_GRPC_TLS_CA` | Путь к CA-сертификату для TLS-подключения к auth gRPC |
 
 ### 5.2 Идентификация пользователя (gRPC-клиент к auth)
 
 Messenger валидирует access token пользователя через gRPC-вызов к auth-сервису.
 
 **gRPC-клиент** (`src/gRPC/client.py`):
-- Канал открывается в lifespan приложения (`open_auth_grpc_channel`) и закрывается при shutdown
+- TLS-канал открывается в lifespan приложения (`open_auth_grpc_channel`, `secure_channel` с CA cert) и закрывается при shutdown
 - `get_user_id_by_token(access_token) -> UUID` — вызывает `UserStub.GetUserInfoByToken`
 - `get_user_id_by_login(login) -> UUID` — вызывает `UserStub.GetUserByLogin` (TASK-004)
 - `get_login_by_user_id(user_id) -> str` — вызывает `UserStub.GetUserById`, возвращает логин для отображения в API (диалоги, сообщения)

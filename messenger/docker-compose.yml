@@ -10,6 +10,7 @@ services:
       - postgres_messenger
     volumes:
       - ./migration/versions:/opt/app/migration/versions
+      - ../deploy/certs/grpc/ca.pem:/opt/app/certs/grpc/ca.pem:ro
 
   postgres_messenger:
     image: postgres:17.4

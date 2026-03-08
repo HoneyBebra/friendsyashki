@@ -23,7 +23,7 @@
 
 ## High
 
-### 4. gRPC без TLS (insecure port/channel)
+### 4. ~~gRPC без TLS (insecure port/channel)~~ ✅ ИСПРАВЛЕНО (2026-03-08)
 
 - **Файл:** `auth/src/main.py`, строка 23 -- `server.add_insecure_port()`
 - **Файл:** `messenger/src/gRPC/client.py`, строка 18 -- `grpc.aio.insecure_channel()`
@@ -34,6 +34,14 @@
 **Импакт:** Man-in-the-middle атака, перехват JWT-токенов.
 
 **Рекомендация:** Использовать `secure_channel()` / `add_secure_port()` с TLS или mTLS. Как минимум убедиться, что gRPC-трафик не выходит за пределы внутренней Docker-сети.
+
+**Исправление:** Реализовано TLS-шифрование для gRPC:
+- Auth сервер: `add_insecure_port()` → `add_secure_port()` с `ssl_server_credentials` (server.pem + server.key + ca.pem)
+- Messenger клиент: `insecure_channel()` → `secure_channel()` с `ssl_channel_credentials` (ca.pem)
+- Скрипт генерации самоподписанных сертификатов: `deploy/certs/grpc/generate_certs.sh` (RSA 4096, SAN: DNS:auth, DNS:localhost, IP:127.0.0.1)
+- Сертификаты монтируются в контейнеры через docker-compose volumes (read-only)
+- Приватные ключи и сертификаты исключены из git через `.gitignore`
+- Пути к сертификатам настраиваются через переменные окружения (`GRPC_TLS_CERT`, `GRPC_TLS_KEY`, `GRPC_TLS_CA`, `AUTH_GRPC_TLS_CA`)
 
 ---
 
@@ -341,6 +349,6 @@ Debug-уровень логирования может раскрывать чу
 5. **Высокий приоритет:** исправить WebSocket accept до аутентификации
 6. **Высокий приоритет:** добавить WebSocket-заголовки в nginx gateway
 7. **Высокий приоритет:** перенести токен из URL в WS-сообщение
-8. **Средний приоритет:** настроить TLS для gRPC и HTTPS для nginx
+8. ~~**Средний приоритет:** настроить TLS для gRPC~~ ✅ и HTTPS для nginx
 9. **Средний приоритет:** исправить утечки ресурсов в gRPC-сессиях
 10. **Средний приоритет:** заменить `datetime.utcnow` на `datetime.now(timezone.utc)`

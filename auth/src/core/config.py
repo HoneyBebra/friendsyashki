@@ -60,12 +60,15 @@ class Settings(BaseSettings):
     backoff_retries_count: int = 10
 
     grpc_port: int = 50051
+    grpc_tls_cert: str = "/opt/app/certs/grpc/server.pem"
+    grpc_tls_key: str = "/opt/app/certs/grpc/server.key"
+    grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
 
     @property
     def backoff_decorator_sqlalchemy_settings(self) -> dict[str, Any]:
         return {
             "stop": stop_after_attempt(self.backoff_retries_count),
-            "wait":  wait_exponential(multiplier=1, min=2, max=60),
+            "wait": wait_exponential(multiplier=1, min=2, max=60),
             "retry": retry_if_exception_type((OperationalError, DisconnectionError)),
             "reraise": True,
         }
