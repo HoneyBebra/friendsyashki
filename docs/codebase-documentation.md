@@ -347,6 +347,9 @@ decrypt_data(data: str) -> str        # Fernet decrypt
 #### Token Blacklist
 При logout оба токена помещаются в Redis с TTL = оставшееся время жизни токена. `get_access_token_data` проверяет blacklist при каждом запросе.
 
+#### Rate Limiting
+Эндпоинты `/users/signup` и `/users/login` защищены от brute-force и credential stuffing через nginx rate limiting (см. секцию 6. Инфраструктура → Nginx → Rate Limiting).
+
 ---
 
 ## 5. Сервис `messenger` (v0.1.6)
@@ -621,6 +624,19 @@ alembic downgrade -1
 ### Nginx
 - `auth/infra/configs/nginx_auth/` — reverse proxy для auth-сервиса
 - `deploy/infra/configs/nginx_gateway/` — главный gateway: роутит `/auth/*` и `/messenger/*`
+
+#### Rate Limiting
+
+На эндпоинтах `/auth/api/v1/users/login` и `/auth/api/v1/users/signup` настроен rate limiting через `limit_req_zone` на двух уровнях:
+
+| Уровень | Конфиг | Login | Signup | Ключ |
+|---|---|---|---|---|
+| Gateway | `deploy/infra/configs/nginx_gateway/` | 5 req/min, burst 3 | 3 req/min, burst 2 | `$binary_remote_addr` |
+| Auth nginx | `auth/infra/configs/nginx_auth/` | 5 req/min, burst 3 | 3 req/min, burst 2 | `$http_x_forwarded_for` |
+
+- Режим `nodelay` — превышающие лимит запросы сразу получают HTTP 429 (Too Many Requests)
+- Зоны объёмом 10 МБ (~160 000 уникальных IP-адресов)
+- Auth nginx использует `$http_x_forwarded_for` для корректного определения реального IP за прокси
 
 ### Технологический стек
 

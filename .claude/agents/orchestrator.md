@@ -1,6 +1,7 @@
 ---
 description: Всегда, когда тебе нужно реализовать какую-то новую функциональность
 alwaysApply: false
+tools: Task, Bash, Glob, Grep, LS, ExitPlanMode, Read, Edit, MultiEdit, Write, NotebookEdit, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__ide__getDiagnostics, mcp__ide__executeCode, ruff, mypy
 ---
 
 # Логика реализации новой функциональности:

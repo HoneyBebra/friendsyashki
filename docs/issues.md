@@ -85,7 +85,7 @@ token = _get_token_from_scope(websocket.scope)  # потом проверка
 
 ---
 
-### 7. Отсутствие rate limiting на login/signup
+### 7. ~~Отсутствие rate limiting на login/signup~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/api/v1/users.py`, строки 34, 73
 - **Категория:** Security (Broken Authentication)
@@ -94,7 +94,12 @@ token = _get_token_from_scope(websocket.scope)  # потом проверка
 
 **Импакт:** Brute-force атака на пароли, credential stuffing, массовое создание аккаунтов.
 
-**Рекомендация:** Добавить rate limiting (`slowapi` или `limit_req_zone` в nginx).
+**Рекомендация:** Добавить rate limiting (`limit_req_zone` в nginx).
+
+**Исправление:** Добавлен rate limiting через `limit_req_zone` в nginx на двух уровнях:
+- **Gateway nginx** (`deploy/infra/configs/nginx_gateway/`): зоны `login_limit` (5 req/min, burst 3) и `signup_limit` (3 req/min, burst 2) по `$binary_remote_addr`. Отдельные `location =` для `/auth/api/v1/users/login` и `/auth/api/v1/users/signup` с `limit_req` и статусом 429.
+- **Auth nginx** (`auth/infra/configs/nginx_auth/`): зоны `auth_login_limit` и `auth_signup_limit` по `$http_x_forwarded_for` (реальный IP клиента за прокси). Аналогичные `location =` блоки с `limit_req` и статусом 429.
+- Режим `nodelay` — превышающие лимит запросы сразу получают 429 без задержки в очереди.
 
 ---
 
