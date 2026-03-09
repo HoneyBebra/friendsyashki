@@ -44,7 +44,7 @@ input::placeholder{color:var(--text2)}
 .topbar .user-info{flex:1;font-size:.9rem;color:var(--text2)}
 .topbar .user-info strong{color:var(--text)}
 
-.main{display:flex;flex:1;overflow:hidden}
+.main{display:flex;flex:1;min-height:0;overflow:hidden}
 
 /* Sidebar */
 .sidebar{width:300px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
@@ -60,10 +60,11 @@ input::placeholder{color:var(--text2)}
 .dialog-item .meta{font-size:.75rem}
 
 /* Chat */
-.chat{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+.chat{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+#chat-active{min-height:0}
 .chat-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px}
 .chat-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:.95rem}
-.messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.messages{flex:1;min-height:0;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
 .msg{max-width:75%;padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word}
 .msg.mine{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .msg.theirs{align-self:flex-start;background:var(--surface);border-bottom-left-radius:4px}
@@ -156,6 +157,29 @@ let dialogs = [];
 let ws = null;
 let wsReconnectTimer = null;
 
+function resetAppState() {
+  if (ws) try { ws.close(); } catch (e) {}
+  ws = null;
+  if (wsReconnectTimer !== null) {
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = null;
+  }
+  currentUserId = null;
+  currentUserLogin = null;
+  currentDialogId = null;
+  dialogs = [];
+  sendQueue = Promise.resolve();
+  document.getElementById('dialog-list').innerHTML = '';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('chat-active').style.display = 'none';
+  document.getElementById('chat-placeholder').style.display = '';
+  document.getElementById('chat-title').textContent = '—';
+  document.getElementById('user-display').textContent = '—';
+  document.getElementById('new-dialog-login').value = '';
+  document.getElementById('msg-input').value = '';
+  document.getElementById('sidebar').classList.remove('hidden');
+}
+
 function showLogin() {
   document.getElementById('signup-form').style.display = 'none';
   document.getElementById('login-form').style.display = '';
@@ -233,11 +257,7 @@ async function doLogin() {
 
 async function doLogout() {
   await api('/auth/api/v1/users/logout', { method: 'POST' });
-  if (ws) try { ws.close(); } catch (e) {}
-  ws = null;
-  currentUserId = null;
-  currentUserLogin = null;
-  currentDialogId = null;
+  resetAppState();
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
 }
@@ -281,6 +301,7 @@ function appendMessage(m) {
 }
 
 async function enterApp() {
+  resetAppState();
   const res = await api('/auth/api/v1/users/me');
   if (!res.ok) return;
   const data = await res.json();
@@ -369,21 +390,27 @@ async function loadMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
-async function sendMessage() {
+let sendQueue = Promise.resolve();
+
+function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if (!text || !currentDialogId) return;
   input.value = '';
+  const dialogId = currentDialogId;
   const clientId = crypto.randomUUID();
-  const res = await api(`/messenger/api/v1/dialogs/${currentDialogId}/messages`, {
-    method: 'POST',
-    body: { text, client_message_id: clientId }
+  sendQueue = sendQueue.then(async function () {
+    try {
+      const res = await api('/messenger/api/v1/dialogs/' + dialogId + '/messages', {
+        method: 'POST',
+        body: { text: text, client_message_id: clientId }
+      });
+      if (res.ok || res.status === 201) {
+        const data = res.json ? await res.json().catch(function () { return null; }) : null;
+        if (data && currentDialogId === dialogId) appendMessage(data);
+      }
+    } catch (e) { /* сетевая ошибка — сообщение не отправлено */ }
   });
-  if (res.ok || res.status === 201) {
-    const data = res.json ? await res.json().catch(() => null) : null;
-    if (data && currentDialogId) appendMessage(data);
-    else await loadMessages();
-  }
 }
 
 function esc(s) {
