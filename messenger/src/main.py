@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
 from src.api.v1.dialogs import router as dialogs_router
@@ -33,6 +34,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 router = APIRouter(prefix=settings.api_v1_prefix)
 router.include_router(health_router)
 router.include_router(dialogs_router)
@@ -46,5 +55,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         log_config=LOGGING,
-        log_level="debug",
+        log_level=settings.log_level,
     )

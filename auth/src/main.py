@@ -8,6 +8,7 @@ from typing import AsyncIterator
 import grpc
 import uvicorn
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
 from src.api.v1.users import router as users_router
@@ -37,7 +38,7 @@ def _load_grpc_server_credentials() -> grpc.ServerCredentials:
     return grpc.ssl_server_credentials(
         private_key_certificate_chain_pairs=[(private_key, certificate_chain)],
         root_certificates=root_ca,
-        require_client_auth=False,
+        require_client_auth=True,
     )
 
 
@@ -65,6 +66,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 router = APIRouter(prefix=settings.api_v1_prefix)
 router.include_router(users_router)
 app.include_router(router)
@@ -75,5 +84,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         log_config=LOGGING,
-        log_level="debug",
+        log_level=settings.log_level,
     )

@@ -5,6 +5,8 @@ from uuid import UUID
 
 from fastapi import WebSocket
 
+from src.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,21 +14,36 @@ class ConnectionManager:
     """Хранит активные WS по user_id, рассылает события участникам диалога."""
 
     def __init__(self) -> None:
-        self._connections: dict[UUID, set[WebSocket]] = {}
+        self._connections: dict[UUID, list[WebSocket]] = {}
 
-    def register(self, user_id: UUID, websocket: WebSocket) -> None:
+    def register(self, user_id: UUID, websocket: WebSocket) -> list[WebSocket]:
+        """Регистрирует соединение.
+
+        Возвращает список старых соединений для закрытия при превышении лимита.
+        """
         if user_id not in self._connections:
-            self._connections[user_id] = set()
-        self._connections[user_id].add(websocket)
+            self._connections[user_id] = []
+        self._connections[user_id].append(websocket)
+
+        excess: list[WebSocket] = []
+        limit = settings.max_ws_connections_per_user
+        while len(self._connections[user_id]) > limit:
+            oldest = self._connections[user_id].pop(0)
+            excess.append(oldest)
+
         logger.debug(
             "WS registered for user_id=%s, total connections=%s",
             user_id,
             len(self._connections[user_id]),
         )
+        return excess
 
     def unregister(self, user_id: UUID, websocket: WebSocket) -> None:
         if user_id in self._connections:
-            self._connections[user_id].discard(websocket)
+            try:
+                self._connections[user_id].remove(websocket)
+            except ValueError:
+                pass
             if not self._connections[user_id]:
                 del self._connections[user_id]
         logger.debug("WS unregistered for user_id=%s", user_id)

@@ -16,6 +16,7 @@ RUN  python3 -m pip install -r requirements.txt
 
 COPY migration ./migration
 COPY alembic.ini ./
+COPY gunicorn.conf.py ./
 COPY src src
 
 RUN  groupadd -r ${APP_GROUP} && \
@@ -24,4 +25,4 @@ RUN  groupadd -r ${APP_GROUP} && \
 
 USER ${APP_USER}
 
-ENTRYPOINT ["gunicorn", "src.main:app", "--bind", "0.0.0.0:8000", "--worker-class", "uvicorn.workers.UvicornWorker"]
+ENTRYPOINT ["gunicorn", "src.main:app", "-c", "gunicorn.conf.py"]

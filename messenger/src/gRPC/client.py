@@ -14,13 +14,29 @@ _stub: user_pb2_grpc.UserStub | None = None
 
 
 def _load_grpc_channel_credentials() -> grpc.ChannelCredentials:
-    """Load CA certificate for TLS connection to auth gRPC."""
+    """Load TLS certificates for mTLS connection to auth gRPC."""
     ca_path = Path(settings.auth_grpc_tls_ca)
-    if not ca_path.is_file():
-        logger.critical("gRPC TLS CA certificate not found: %s", ca_path)
-        raise FileNotFoundError(f"gRPC TLS CA certificate not found: {ca_path}")
+    cert_path = Path(settings.auth_grpc_tls_cert)
+    key_path = Path(settings.auth_grpc_tls_key)
+
+    for path, label in [
+        (ca_path, "CA certificate"),
+        (cert_path, "client certificate"),
+        (key_path, "client private key"),
+    ]:
+        if not path.is_file():
+            logger.critical("gRPC TLS %s not found: %s", label, path)
+            raise FileNotFoundError(f"gRPC TLS {label} not found: {path}")
+
     root_ca = ca_path.read_bytes()
-    return grpc.ssl_channel_credentials(root_certificates=root_ca)
+    private_key = key_path.read_bytes()
+    certificate_chain = cert_path.read_bytes()
+
+    return grpc.ssl_channel_credentials(
+        root_certificates=root_ca,
+        private_key=private_key,
+        certificate_chain=certificate_chain,
+    )
 
 
 async def open_auth_grpc_channel() -> None:

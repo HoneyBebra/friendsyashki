@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     auth_grpc_host: str = "auth"
     auth_grpc_port: int = 50051
     auth_grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
+    auth_grpc_tls_cert: str = "/opt/app/certs/grpc/client.pem"
+    auth_grpc_tls_key: str = "/opt/app/certs/grpc/client.key"
+
+    cors_origins: list[str] = []
+
+    max_ws_connections_per_user: int = 5
+
+    log_level: str = "info"
 
     @property
     def postgres_dsn(self) -> str:

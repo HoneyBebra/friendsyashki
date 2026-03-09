@@ -304,7 +304,7 @@ Gateway слушает только на порту 80. Cookies с access/refres
 
 ---
 
-### 22. Нет CORS-конфигурации в обоих сервисах
+### 22. ~~Нет CORS-конфигурации в обоих сервисах~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/main.py`
 - **Файл:** `messenger/src/main.py`
@@ -314,33 +314,43 @@ CORS middleware не настроен ни в auth, ни в messenger.
 
 **Рекомендация:** Добавить `CORSMiddleware` с whitelist разрешённых origins.
 
+**Исправление:** Добавлен `CORSMiddleware` из FastAPI в оба сервиса (auth и messenger):
+- `allow_origins` настраивается через переменную окружения `CORS_ORIGINS` (тип `list[str]`, по умолчанию пустой список — ни один origin не разрешён)
+- `allow_credentials=True` для поддержки cookies (access/refresh токены)
+- `allow_methods` ограничены стандартными HTTP-методами (GET, POST, PUT, PATCH, DELETE, OPTIONS)
+- `allow_headers` ограничены `Content-Type` и `Authorization`
+- Настройка `cors_origins` добавлена в `Settings` обоих сервисов и в `.env.example`
+
 ---
 
 ## Low
 
-### 23. `POSTGRES_ECHO=1` по умолчанию
+### 23. ~~`POSTGRES_ECHO=1` по умолчанию~~ (Исправлено)
 
-- **Файл:** `auth/.env.example`, строка 8
+- **Файл:** `auth/.env.example`, строка 8; `auth/src/core/config.py`, строка 30
 - **Категория:** Config
 
-SQL echo включён -- в production все SQL-запросы будут в логах, включая чувствительные данные.
+~~SQL echo включён -- в production все SQL-запросы будут в логах, включая чувствительные данные.~~
 
-**Рекомендация:** `POSTGRES_ECHO=0` по умолчанию.
+**Решение:** `POSTGRES_ECHO=0` по умолчанию в `.env.example`, `postgres_echo: bool = False` в конфиге auth-сервиса.
 
 ---
 
-### 24. `log_level="debug"` при прямом запуске
+### 24. ~~`log_level="debug"` при прямом запуске~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/main.py`, строка 49
+- **Файл:** `messenger/src/main.py`, строка 31
 - **Категория:** Config
 
 Debug-уровень логирования может раскрывать чувствительную информацию.
 
 **Рекомендация:** Использовать переменную окружения для уровня логирования.
 
+**Исправление:** Хардкоженный `log_level="debug"` заменён на `settings.log_level` в обоих сервисах (auth и messenger). Добавлена настройка `log_level: str = "info"` в `Settings` обоих сервисов с дефолтным значением `"info"`. Переменная окружения `LOG_LEVEL` добавлена в `.env.example` обоих сервисов.
+
 ---
 
-### 25. Нет `max_length` на поле `password` в модели/схеме
+### 25. ~~Нет `max_length` на поле `password` в модели/схеме~~ (Исправлено)
 
 - **Файл:** `auth/src/models/users.py`, строка 19
 - **Категория:** Security (DoS)
@@ -349,9 +359,11 @@ Debug-уровень логирования может раскрывать чу
 
 **Рекомендация:** Ограничить max_length пароля (например, 128 символов) в Pydantic-схеме.
 
+**Исправление:** Добавлены ограничения `min_length=8, max_length=128` на поля `password` и `confirm_password` в Pydantic-схемах `UserEntersDataBaseSchema` и `UserRegisterSchema` (`auth/src/schemas/v1/users.py`). Это предотвращает DoS-атаку через отправку сверхдлинных паролей, которые блокируют CPU при bcrypt-хешировании.
+
 ---
 
-### 26. gRPC `GetUserByLogin`/`GetUserById` без аутентификации
+### 26. ~~gRPC `GetUserByLogin`/`GetUserById` без аутентификации~~ (Исправлено)
 
 - **Файл:** `auth/src/gRPC/server.py`, строки 39-52
 - **Категория:** Security
@@ -360,9 +372,11 @@ Debug-уровень логирования может раскрывать чу
 
 **Рекомендация:** Добавить interceptor или mTLS для межсервисной авторизации.
 
+**Исправление:** Включена взаимная аутентификация (mTLS) — сервер auth требует клиентский сертификат (`require_client_auth=True`), клиент messenger предоставляет свой сертификат при подключении. Скрипт генерации сертификатов обновлён для создания клиентского сертификата.
+
 ---
 
-### 27. Нет ограничения количества WebSocket-соединений на пользователя
+### 27. ~~Нет ограничения количества WebSocket-соединений на пользователя~~ (Исправлено)
 
 - **Файл:** `messenger/src/ws/manager.py`, строки 17-25
 - **Категория:** Security (DoS)
@@ -370,6 +384,8 @@ Debug-уровень логирования может раскрывать чу
 Один пользователь может открыть неограниченное число WS-соединений.
 
 **Рекомендация:** Лимит (например, 5 соединений на пользователя).
+
+**Исправление:** Добавлен лимит одновременных WebSocket-соединений на пользователя (по умолчанию 5, настраивается через `max_ws_connections_per_user` в конфигурации). При превышении лимита самые старые соединения закрываются с кодом 4008.
 
 ---
 
@@ -381,6 +397,8 @@ Debug-уровень логирования может раскрывать чу
 В Dockerfile указан gunicorn, но конфигурация отсутствует. Используются дефолты (1 worker).
 
 **Рекомендация:** Создать `gunicorn.conf.py` с настройками `workers`, `timeout`, `graceful_timeout`.
+
+**Исправление:** Создан `messenger/gunicorn.conf.py` с настройками `workers` (cpu_count * 2 + 1), `worker_class` (UvicornWorker), `timeout` (120s), `graceful_timeout` (30s), `keepalive` (5s) и логирования. Dockerfile обновлён для копирования конфига и использования его через `-c gunicorn.conf.py`.
 
 ---
 

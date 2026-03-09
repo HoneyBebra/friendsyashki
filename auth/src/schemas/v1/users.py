@@ -5,6 +5,12 @@ from pydantic import AfterValidator, BaseModel, EmailStr, Field, model_validator
 
 from src.schemas.v1.base import validate_password
 
+PasswordField = Annotated[
+    str,
+    Field(min_length=8, max_length=128),
+    AfterValidator(validate_password),
+]
+
 
 class UserDataBase(BaseModel):
     email: EmailStr | None = Field(default=None)
@@ -12,7 +18,7 @@ class UserDataBase(BaseModel):
 
 
 class UserEntersDataBaseSchema(UserDataBase):
-    password: Annotated[str, AfterValidator(validate_password)]
+    password: PasswordField
 
     @model_validator(mode="before")
     @classmethod
@@ -24,7 +30,7 @@ class UserEntersDataBaseSchema(UserDataBase):
 
 class UserRegisterSchema(UserEntersDataBaseSchema):
     login: str = Field(min_length=3, max_length=50)
-    confirm_password: Annotated[str, AfterValidator(validate_password)]
+    confirm_password: PasswordField
 
     @model_validator(mode="before")
     @classmethod

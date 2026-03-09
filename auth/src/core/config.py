@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     postgres_db: str
     postgres_host: str
     postgres_port: str
-    postgres_echo: bool
+    postgres_echo: bool = False
 
     api_v1_prefix: str = "/auth/api/v1"
 
@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
 
     cors_origins: list[str] = []
+
+    log_level: str = "info"
 
     @property
     def backoff_decorator_sqlalchemy_settings(self) -> dict[str, Any]:

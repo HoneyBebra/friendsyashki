@@ -29,7 +29,13 @@ async def websocket_connect(websocket: WebSocket) -> None:
 
     await websocket.accept()
 
-    ws_manager.register(user_id, websocket)
+    excess = ws_manager.register(user_id, websocket)
+    for old_ws in excess:
+        try:
+            await old_ws.close(code=4008, reason="Too many connections")
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Failed to close excess WS for user_id=%s: %s", user_id, e)
+
     try:
         while True:
             await websocket.receive_text()
