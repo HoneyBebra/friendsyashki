@@ -70,7 +70,7 @@ async def create_or_get_direct_dialog(
     service: DialogsService = Depends(get_dialogs_service),
 ) -> DialogResponse:
     try:
-        dialog = await service.create_or_get_direct(
+        dialog, created = await service.create_or_get_direct(
             current_user_id=current_user_id,
             target_login=body.target_login,
         )
@@ -91,9 +91,10 @@ async def create_or_get_direct_dialog(
         ) from exc
 
     response = await _dialog_to_response(dialog)
-    participant_ids = [p.user_id for p in dialog.participants]
-    await ws_manager.broadcast_to_users(
-        participant_ids,
-        {"event": "new_dialog", "payload": response.model_dump(mode="json")},
-    )
+    if created:
+        participant_ids = [p.user_id for p in dialog.participants]
+        await ws_manager.broadcast_to_users(
+            participant_ids,
+            {"event": "new_dialog", "payload": response.model_dump(mode="json")},
+        )
     return response

@@ -15,7 +15,13 @@ class DialogsService:
     async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
         return await self.dialogs_repository.get_user_dialogs(user_id)
 
-    async def create_or_get_direct(self, current_user_id: UUID, target_login: str) -> Dialog:
+    async def create_or_get_direct(
+        self, current_user_id: UUID, target_login: str
+    ) -> tuple[Dialog, bool]:
+        """Создать или найти существующий direct-диалог.
+
+        Возвращает кортеж (dialog, created), где created=True, если диалог был создан.
+        """
         target_user_id = await self._resolve_target_user(target_login)
 
         if current_user_id == target_user_id:
@@ -23,12 +29,13 @@ class DialogsService:
 
         existing = await self.dialogs_repository.get_direct_dialog(current_user_id, target_user_id)
         if existing is not None:
-            return existing
+            return existing, False
 
-        return await self.dialogs_repository.create_with_participants(
+        dialog = await self.dialogs_repository.create_with_participants(
             dialog_type="direct",
             participant_ids=[current_user_id, target_user_id],
         )
+        return dialog, True
 
     @staticmethod
     async def _resolve_target_user(target_login: str) -> UUID:
