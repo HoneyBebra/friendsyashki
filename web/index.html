@@ -62,7 +62,6 @@ input::placeholder{color:var(--text2)}
 /* Chat */
 .chat{flex:1;display:flex;flex-direction:column;background:var(--bg)}
 .chat-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px}
-.chat-header button{font-size:.8rem;padding:6px 12px}
 .chat-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:.95rem}
 .messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
 .msg{max-width:75%;padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word}
@@ -138,7 +137,6 @@ input::placeholder{color:var(--text2)}
         <div class="chat-header">
           <button class="secondary back-btn" onclick="closeChatMobile()">←</button>
           <span id="chat-title">—</span>
-          <button class="secondary" onclick="loadMessages()" style="margin-left:auto;font-size:.8rem;padding:6px 12px">↻</button>
         </div>
         <div class="messages" id="messages"></div>
         <div class="compose">
@@ -254,6 +252,8 @@ function connectWs() {
       const data = JSON.parse(ev.data);
       if (data.event === 'new_message' && data.payload) {
         if (data.payload.dialog_id === currentDialogId) appendMessage(data.payload);
+        loadDialogs();
+      } else if (data.event === 'new_dialog' && data.payload) {
         loadDialogs();
       }
     } catch (e) {}

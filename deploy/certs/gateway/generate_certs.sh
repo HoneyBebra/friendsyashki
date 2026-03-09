@@ -28,7 +28,7 @@ openssl req -newkey rsa:4096 -nodes \
 
 # SAN: allow connection by hostname "nginx_gateway" (Docker service name) and localhost
 cat > server_ext.cnf <<EOF
-subjectAltName = DNS:nginx_gateway, DNS:localhost, IP:127.0.0.1
+subjectAltName = DNS:nginx_gateway, DNS:localhost, IP:127.0.0.1, IP:192.168.1.174
 EOF
 
 echo "==> Signing server certificate with CA..."

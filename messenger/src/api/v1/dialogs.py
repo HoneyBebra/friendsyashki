@@ -14,6 +14,7 @@ from src.schemas.v1.dialogs import (
     ParticipantResponse,
 )
 from src.services.dialogs import DialogsService
+from src.ws.manager import ws_manager
 
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
@@ -89,4 +90,10 @@ async def create_or_get_direct_dialog(
             detail="Authentication service unavailable",
         ) from exc
 
-    return await _dialog_to_response(dialog)
+    response = await _dialog_to_response(dialog)
+    participant_ids = [p.user_id for p in dialog.participants]
+    await ws_manager.broadcast_to_users(
+        participant_ids,
+        {"event": "new_dialog", "payload": response.model_dump(mode="json")},
+    )
+    return response

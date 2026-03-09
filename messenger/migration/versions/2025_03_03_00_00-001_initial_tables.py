@@ -26,8 +26,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("title", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -36,9 +36,9 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False, default=sa.text("gen_random_uuid()")),
         sa.Column("dialog_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("joined_at", sa.DateTime(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["dialog_id"], ["dialogs.id"], ondelete="CASCADE"
         ),
@@ -54,8 +54,8 @@ def upgrade() -> None:
         sa.Column("sender_id", sa.UUID(), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
         sa.Column("client_message_id", sa.String(length=255), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["dialog_id"], ["dialogs.id"], ondelete="CASCADE"
         ),
@@ -75,8 +75,8 @@ def upgrade() -> None:
             sa.Enum("sent", "delivered", "read", name="message_status_enum", native_enum=False),
             nullable=False,
         ),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["message_id"], ["messages.id"], ondelete="CASCADE"
         ),

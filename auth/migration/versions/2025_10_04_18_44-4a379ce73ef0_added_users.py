@@ -29,8 +29,8 @@ def upgrade() -> None:
     sa.Column('email', sa.String(), nullable=True),
     sa.Column('tg_id', sa.Integer(), nullable=True),
     sa.Column('tg_username', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('id')
     )
