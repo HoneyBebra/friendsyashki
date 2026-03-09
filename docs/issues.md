@@ -103,7 +103,7 @@ token = _get_token_from_scope(websocket.scope)  # потом проверка
 
 ---
 
-### 8. Утечка информации через JWTError
+### 8. ~~Утечка информации через JWTError~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/dependencies/jwt.py`, строка 83
 - **Категория:** Security (Information Disclosure)
@@ -115,6 +115,8 @@ detail=str(e)  # раскрывает внутреннюю ошибку JWT-де
 **Импакт:** Помогает атакующему подбирать формат токена.
 
 **Рекомендация:** Заменить на `detail="Invalid credentials"`.
+
+**Исправление:** Заменено `detail=str(e)` на `detail="Invalid credentials"` в обработчике `JWTError` в функции `__get_payload()`. Теперь при любой ошибке JWT-декодирования клиент получает общее сообщение без деталей внутренней ошибки.
 
 ---
 

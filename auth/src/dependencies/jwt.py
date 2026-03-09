@@ -80,7 +80,7 @@ async def __get_payload(token: str) -> dict[str, Any]:
     except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e),
+            detail="Invalid credentials",
         ) from e
 
 
