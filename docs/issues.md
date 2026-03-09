@@ -120,7 +120,7 @@ detail=str(e)  # раскрывает внутреннюю ошибку JWT-де
 
 ---
 
-### 10. Redis: protected-mode off, bind закомментирован
+### 10. ~~Redis: protected-mode off, bind закомментирован~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/infra/configs/redis/redis.conf`, строки 2-5, 133
 - **Категория:** Config (Security Misconfiguration)
@@ -136,9 +136,11 @@ Redis слушает на всех интерфейсах без защиты. �
 
 **Рекомендация:** `protected-mode yes`, раскомментировать `bind`, не коммитить пароль.
 
+**Исправление:** Установлен `protected-mode yes`, раскомментирован `bind 0.0.0.0` (в Docker-сети Redis должен быть доступен другим контейнерам). Пароль Redis удалён из `redis.conf` и теперь передаётся через переменную окружения `REDIS_PASSWORD` из `.env` файла в `docker-compose.yml` через аргумент командной строки `--requirepass`.
+
 ---
 
-### 11. Nginx gateway не проксирует WebSocket-заголовки
+### 11. ~~Nginx gateway не проксирует WebSocket-заголовки~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `deploy/infra/configs/nginx_gateway/site.conf`, строки 11-13
 - **Категория:** Bug/Config
@@ -163,11 +165,13 @@ location /messenger/ws {
 }
 ```
 
+**Исправление:** Добавлен отдельный `location /messenger/ws` перед общим `location /messenger/` в конфиге nginx gateway. Новый location включает `proxy_http_version 1.1`, заголовки `Upgrade` и `Connection "upgrade"` для корректного проксирования WebSocket-соединений.
+
 ---
 
 ## Medium
 
-### 12. Cookie без SameSite атрибута
+### 12. ~~Cookie без SameSite атрибута~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/services/users.py`, строки 116-127
 - **Категория:** Security (CSRF)
@@ -176,9 +180,11 @@ location /messenger/ws {
 
 **Рекомендация:** Добавить `samesite="Lax"` или `"Strict"`.
 
+**Исправление:** Добавлен параметр `samesite="lax"` к обоим вызовам `response.set_cookie()` (access_token и refresh_token) в методе `add_tokens_to_response`. Это предотвращает отправку cookies при cross-site запросах, защищая от CSRF-атак.
+
 ---
 
-### 13. Утечка ресурсов в gRPC-сессиях (незакрытые DB/Redis сессии)
+### 13. ~~Утечка ресурсов в gRPC-сессиях (незакрытые DB/Redis сессии)~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/gRPC/server.py`, строки 77-83
 - **Категория:** Bug/Performance
@@ -189,9 +195,16 @@ location /messenger/ws {
 
 **Рекомендация:** Создавать новые сессии для каждого gRPC-запроса или корректно управлять жизненным циклом генераторов.
 
+**Исправление:** Полностью переработано управление сессиями в gRPC-сервере:
+- Создан async context manager `_create_user_service()`, который открывает DB и Redis сессии через генераторы и гарантирует их корректное закрытие через `aclose()` в блоке `finally`.
+- Каждый gRPC-метод (`GetUserInfoByToken`, `GetUserByLogin`, `GetUserById`) теперь создаёт собственные сессии через `async with _create_user_service()`, которые автоматически закрываются после обработки запроса.
+- При ошибке DB-сессия корректно откатывается (через логику `get_session()` генератора), Redis-соединение закрывается.
+- `GrpcServer` больше не хранит `user_service` в конструкторе — устранена проблема использования одной долгоживущей сессии для всех запросов.
+- Функция `get_grpc_session()` заменена на `create_grpc_server()` — простая синхронная функция без управления сессиями.
+
 ---
 
-### 14. `datetime.utcnow` deprecated (Python 3.12+)
+### 14. ~~`datetime.utcnow` deprecated (Python 3.12+)~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/models/base.py`, строки 7-8
 - **Файл:** `messenger/src/models/base.py`, строки 7-8
@@ -202,9 +215,11 @@ location /messenger/ws {
 
 **Рекомендация:** `datetime.now(timezone.utc)` + `onupdate=func.now()` для `updated_at`.
 
+**Исправление:** Заменено `datetime.utcnow` на `lambda: datetime.now(timezone.utc)` во всех моделях (`auth/src/models/base.py`, `messenger/src/models/base.py`, `messenger/src/models/dialog_participants.py`). Добавлен `onupdate=func.now()` для поля `updated_at` в базовых моделях обоих сервисов, чтобы значение обновлялось автоматически при изменении записи.
+
 ---
 
-### 15. `order_by` принимает произвольную строку
+### 15. ~~`order_by` принимает произвольную строку~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/repositories/users.py`, строка 62
 - **Категория:** Security (Potential SQL Injection)
@@ -213,9 +228,11 @@ location /messenger/ws {
 
 **Рекомендация:** Использовать whitelist или атрибуты модели: `getattr(Users, order_by)`.
 
+**Исправление:** Добавлена валидация параметра `order_by` через `hasattr(Users, order_by)`. Если переданное имя поля не существует в модели `Users`, выбрасывается `ValueError` с перечислением допустимых полей. Вместо передачи строки напрямую в `query.order_by()` теперь используется `getattr(Users, order_by)`, что возвращает атрибут модели SQLAlchemy и исключает возможность SQL injection.
+
 ---
 
-### 17. Timing attack при сравнении хешей PII
+### 17. ~~Timing attack при сравнении хешей PII~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/utils/encryption.py`, строка 41
 - **Категория:** Security
@@ -224,9 +241,11 @@ location /messenger/ws {
 
 **Рекомендация:** Использовать `hmac.compare_digest()`.
 
+**Исправление:** Заменено сравнение `==` на `hmac.compare_digest()` в функции `verify_user_data`. Добавлен `import hmac`. Это предотвращает timing attack, при котором атакующий может по времени ответа определить количество совпадающих символов хеша.
+
 ---
 
-### 18. Hash PII без HMAC (уязвимость length extension attack)
+### 18. ~~Hash PII без HMAC (уязвимость length extension attack)~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `auth/src/utils/encryption.py`, строки 34-37
 - **Категория:** Security
@@ -235,9 +254,11 @@ location /messenger/ws {
 
 **Рекомендация:** `hmac.new(secret.encode(), data.encode(), hashlib.sha256).hexdigest()`.
 
+**Исправление:** Заменено `hashlib.sha256(data + secret)` на `hmac.new(secret.encode(), data.encode(), hashlib.sha256).hexdigest()`. HMAC использует внутреннюю конструкцию с двойным хешированием (HMAC-SHA256), которая не подвержена length extension attack. Функция `verify_user_data` (исправленная в задаче #17) вызывает `hash_user_data`, поэтому автоматически использует новый формат хешей.
+
 ---
 
-### 19. Голый `except Exception` в обработчике сообщений
+### 19. ~~Голый `except Exception` в обработчике сообщений~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `messenger/src/api/v1/messages.py`, строки 141-147
 - **Категория:** Bug
@@ -246,9 +267,11 @@ location /messenger/ws {
 
 **Рекомендация:** Ловить конкретные исключения (`SQLAlchemyError` и т.п.).
 
+**Исправление:** Заменён голый `except Exception` на конкретные исключения `(OSError, SQLAlchemyError)` с привязкой объекта исключения (`as e`). Ошибки логируются через `logger.warning` с указанием `message_id` и `user_id` для диагностики. `OSError` покрывает сетевые ошибки при работе с БД, `SQLAlchemyError` — все ошибки SQLAlchemy.
+
 ---
 
-### 20. Race condition в `set_delivered_if_sent`
+### 20. ~~Race condition в `set_delivered_if_sent`~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `messenger/src/repositories/messages.py`, строки 104-129
 - **Категория:** Bug
@@ -257,9 +280,11 @@ location /messenger/ws {
 
 **Рекомендация:** Использовать `INSERT ... ON CONFLICT` или `SELECT ... FOR UPDATE`.
 
+**Исправление:** Добавлен `UniqueConstraint("message_id", "user_id")` на таблицу `message_statuses` (миграция 002). Метод `set_delivered_if_sent` переписан с использованием атомарного `INSERT ... ON CONFLICT DO UPDATE`: при отсутствии записи вставляется статус `DELIVERED`, при конфликте обновляется только если текущий статус `SENT`. Это полностью устраняет race condition и исключает дубликаты.
+
 ---
 
-### 21. Только HTTP, нет HTTPS на gateway
+### 21. ~~Только HTTP, нет HTTPS на gateway~~ ✅ ИСПРАВЛЕНО (2026-03-09)
 
 - **Файл:** `deploy/docker-compose.infra.yml`, строка 12
 - **Файл:** `deploy/infra/configs/nginx_gateway/site.conf`, строка 2
@@ -268,6 +293,14 @@ location /messenger/ws {
 Gateway слушает только на порту 80. Cookies с access/refresh токенами передаются в открытом виде.
 
 **Рекомендация:** Настроить TLS-терминацию на nginx для production.
+
+**Исправление:** Настроена TLS-терминация на nginx gateway:
+- Добавлен HTTPS server block на порту 443 с SSL (TLSv1.2/TLSv1.3, HIGH ciphers, session cache)
+- HTTP (порт 80) теперь выполняет 301 redirect на HTTPS
+- Скрипт генерации самоподписанных сертификатов: `deploy/certs/gateway/generate_certs.sh` (RSA 4096, SAN: DNS:nginx_gateway, DNS:localhost, IP:127.0.0.1)
+- Сертификаты монтируются в контейнер через docker-compose volumes (read-only)
+- Приватные ключи и сертификаты исключены из git через `.gitignore`
+- В `docker-compose.infra.yml` добавлен порт 443 и volumes для сертификатов
 
 ---
 
@@ -358,8 +391,8 @@ Debug-уровень логирования может раскрывать чу
 3. **Немедленно:** ротировать все секреты (JWT, Redis, Postgres, encryption key)
 4. **Высокий приоритет:** добавить rate limiting на `/login` и `/signup`
 5. **Высокий приоритет:** исправить WebSocket accept до аутентификации
-6. **Высокий приоритет:** добавить WebSocket-заголовки в nginx gateway
+6. ~~**Высокий приоритет:** добавить WebSocket-заголовки в nginx gateway~~ ✅
 7. **Высокий приоритет:** перенести токен из URL в WS-сообщение
-8. ~~**Средний приоритет:** настроить TLS для gRPC~~ ✅ и HTTPS для nginx
-9. **Средний приоритет:** исправить утечки ресурсов в gRPC-сессиях
-10. **Средний приоритет:** заменить `datetime.utcnow` на `datetime.now(timezone.utc)`
+8. ~~**Средний приоритет:** настроить TLS для gRPC~~ ✅ ~~и HTTPS для nginx~~ ✅
+9. ~~**Средний приоритет:** исправить утечки ресурсов в gRPC-сессиях~~ ✅
+10. ~~**Средний приоритет:** заменить `datetime.utcnow` на `datetime.now(timezone.utc)`~~ ✅

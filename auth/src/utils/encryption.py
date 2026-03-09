@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 
 from cryptography.fernet import Fernet
 from passlib.context import CryptContext
@@ -32,13 +33,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def hash_user_data(data: str) -> str:
-    return hashlib.sha256(
-        f"{data}{settings.encryption_user_data_secret_key}".encode(),
+    return hmac.new(
+        settings.encryption_user_data_secret_key.encode(),
+        data.encode(),
+        hashlib.sha256,
     ).hexdigest()
 
 
 def verify_user_data(data: str, hashed_data: str) -> bool:
-    return hash_user_data(data) == hashed_data
+    return hmac.compare_digest(hash_user_data(data), hashed_data)
 
 
 def encrypt_data(data: str) -> str:

@@ -14,7 +14,7 @@ from src.api.v1.users import router as users_router
 from src.core.config import settings
 from src.core.logger import LOGGING
 from src.gRPC.protos import user_pb2_grpc
-from src.gRPC.server import get_grpc_session
+from src.gRPC.server import create_grpc_server
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def _load_grpc_server_credentials() -> grpc.ServerCredentials:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator:
     server = grpc.aio.server()
-    user_pb2_grpc.add_UserServicer_to_server(await get_grpc_session(), server)
+    user_pb2_grpc.add_UserServicer_to_server(create_grpc_server(), server)
 
     credentials = _load_grpc_server_credentials()
     server.add_secure_port(f"[::]:{settings.grpc_port}", credentials)

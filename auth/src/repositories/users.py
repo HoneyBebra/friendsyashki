@@ -59,7 +59,12 @@ class UsersRepository(BaseUsersRepository):
         if email_hash is not None:
             query = query.where(Users.email_hash == email_hash)
         if order_by is not None:
-            query = query.order_by(order_by)
+            if not hasattr(Users, order_by):
+                raise ValueError(
+                    f"Invalid order_by field: '{order_by}'. "
+                    f"Allowed fields: {[c.key for c in Users.__table__.columns]}"
+                )
+            query = query.order_by(getattr(Users, order_by))
         if limit is not None:
             query = query.limit(limit)
         if offset is not None:

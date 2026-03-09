@@ -118,12 +118,14 @@ class UsersService:
             value=access_token,
             httponly=True,
             secure=settings.cookie_secure,
+            samesite="lax",
         )
         response.set_cookie(
             key=settings.refresh_token_key_in_cookie,
             value=refresh_token,
             httponly=True,
             secure=settings.cookie_secure,
+            samesite="lax",
         )
 
         return response

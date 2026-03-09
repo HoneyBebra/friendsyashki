@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     grpc_tls_key: str = "/opt/app/certs/grpc/server.key"
     grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
 
+    cors_origins: list[str] = []
+
     @property
     def backoff_decorator_sqlalchemy_settings(self) -> dict[str, Any]:
         return {

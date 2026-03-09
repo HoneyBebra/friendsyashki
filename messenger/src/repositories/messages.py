@@ -1,7 +1,8 @@
 from uuid import UUID
 
 from fastapi import Depends
-from sqlalchemy import select, update
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.postgres import get_session
@@ -100,24 +101,23 @@ class MessagesRepository(BaseMessagesRepository):
         message_id: UUID,
         user_id: UUID,
     ) -> MessageStatus | None:
-        existing = await self.get_status(message_id, user_id)
-        if existing is None:
-            msg_status = MessageStatus(
+        stmt = (
+            pg_insert(MessageStatus)
+            .values(
                 message_id=message_id,
                 user_id=user_id,
                 status=MessageStatusEnum.DELIVERED,
             )
-            self.session.add(msg_status)
-            await self.session.commit()
-            await self.session.refresh(msg_status)
-            return msg_status
-        if existing.status != MessageStatusEnum.SENT:
-            return None
-        await self.session.execute(
-            update(MessageStatus)
-            .where(MessageStatus.id == existing.id)
-            .values(status=MessageStatusEnum.DELIVERED)
+            .on_conflict_do_update(
+                constraint="uq_message_status_message_user",
+                set_={"status": MessageStatusEnum.DELIVERED},
+                where=MessageStatus.status == MessageStatusEnum.SENT,
+            )
+            .returning(MessageStatus)
         )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
         await self.session.commit()
-        await self.session.refresh(existing)
-        return existing
+        if row is not None:
+            await self.session.refresh(row)
+        return row

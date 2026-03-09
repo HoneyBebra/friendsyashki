@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey
@@ -25,6 +25,6 @@ class DialogParticipant(BaseModel):
         index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    joined_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    joined_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     dialog: Mapped[Dialog] = relationship(back_populates="participants")
