@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,7 +26,11 @@ def get_dialogs_service(
     return DialogsService(dialogs_repository=dialogs_repository)
 
 
-async def _dialog_to_response(dialog: Dialog) -> DialogResponse:
+async def _dialog_to_response(
+    dialog: Dialog,
+    last_message_text: str | None = None,
+    last_message_at: datetime | None = None,
+) -> DialogResponse:
     participants_resp = []
     for p in dialog.participants:
         try:
@@ -41,6 +46,8 @@ async def _dialog_to_response(dialog: Dialog) -> DialogResponse:
         title=dialog.title,
         participants=participants_resp,
         created_at=dialog.created_at,
+        last_message_text=last_message_text,
+        last_message_at=last_message_at,
     )
 
 
@@ -53,10 +60,18 @@ async def get_dialogs(
     current_user_id: UUID = Depends(get_current_user_id),
     service: DialogsService = Depends(get_dialogs_service),
 ) -> DialogsListResponse:
-    dialogs = await service.get_user_dialogs(current_user_id)
-    return DialogsListResponse(
-        dialogs=[await _dialog_to_response(d) for d in dialogs],
-    )
+    dialogs, last_messages = await service.get_user_dialogs_with_previews(current_user_id)
+    responses = []
+    for d in dialogs:
+        lm = last_messages.get(d.id)
+        responses.append(
+            await _dialog_to_response(
+                d,
+                last_message_text=lm[0] if lm else None,
+                last_message_at=lm[1] if lm else None,
+            )
+        )
+    return DialogsListResponse(dialogs=responses)
 
 
 @router.post(

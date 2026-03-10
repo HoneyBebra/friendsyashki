@@ -19,6 +19,8 @@ class DialogResponse(BaseModel):
     title: str | None
     participants: list[ParticipantResponse]
     created_at: datetime
+    last_message_text: str | None = None
+    last_message_at: datetime | None = None
 
 
 class DialogsListResponse(BaseModel):

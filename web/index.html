@@ -158,6 +158,7 @@ let currentDialogId = null;
 let dialogs = [];
 let ws = null;
 let wsReconnectTimer = null;
+let wsIsReconnect = false;
 
 function resetAppState() {
   if (ws) try { ws.close(); } catch (e) {}
@@ -171,6 +172,7 @@ function resetAppState() {
   currentDialogId = null;
   dialogs = [];
   sendQueue = Promise.resolve();
+  wsIsReconnect = false;
   document.getElementById('dialog-list').innerHTML = '';
   document.getElementById('messages').innerHTML = '';
   document.getElementById('chat-active').style.display = 'none';
@@ -278,7 +280,14 @@ function connectWs() {
       } else if (data.event === 'new_dialog' && data.payload) {
         addOrUpdateDialog(data.payload);
       }
-    } catch (e) {}
+    } catch (e) { console.error('WS message error:', e); }
+  };
+  ws.onopen = function () {
+    if (wsIsReconnect) {
+      loadDialogs();
+      if (currentDialogId) loadMessages();
+    }
+    wsIsReconnect = true;
   };
   ws.onclose = function () {
     ws = null;
@@ -354,8 +363,9 @@ function renderDialogs() {
     const el = document.createElement('div');
     el.className = 'dialog-item' + (d.id === currentDialogId ? ' active' : '');
     const title = d.title || d.participants?.map(p => p.login).filter(login => login && login !== currentUserLogin).join(', ') || d.id.slice(0, 8);
-    const date = d.created_at ? new Date(d.created_at).toLocaleDateString() : '';
-    el.innerHTML = `<div class="title">${esc(title)}</div><div class="meta">${esc(date)}</div>`;
+    const lastTime = d.last_message_at ? new Date(d.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const preview = d.last_message_text ? (d.last_message_text.length > 40 ? d.last_message_text.slice(0, 40) + '…' : d.last_message_text) : '';
+    el.innerHTML = `<div class="title">${esc(title)}<span style="float:right;font-weight:400;font-size:.75rem;color:var(--text2)">${esc(lastTime)}</span></div><div class="meta">${esc(preview)}</div>`;
     el.onclick = () => openDialog(d);
     list.appendChild(el);
   });
@@ -467,7 +477,7 @@ function esc(s) {
   try {
     const res = await fetch('/auth/api/v1/users/me', { credentials: 'include' });
     if (res.ok) await enterApp();
-  } catch {}
+  } catch (e) { console.error('Auto-login failed:', e); }
 })();
 </script>
 </body>

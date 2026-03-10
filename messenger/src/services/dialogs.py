@@ -15,6 +15,13 @@ class DialogsService:
     async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
         return await self.dialogs_repository.get_user_dialogs(user_id)
 
+    async def get_user_dialogs_with_previews(self, user_id: UUID) -> tuple[list[Dialog], dict]:
+        """Получить диалоги пользователя с превью последних сообщений."""
+        dialogs = await self.dialogs_repository.get_user_dialogs(user_id)
+        dialog_ids = [d.id for d in dialogs]
+        last_messages = await self.dialogs_repository.get_last_messages(dialog_ids)
+        return dialogs, last_messages
+
     async def create_or_get_direct(
         self, current_user_id: UUID, target_login: str
     ) -> tuple[Dialog, bool]:

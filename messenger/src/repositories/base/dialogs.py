@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from uuid import UUID
 
 from src.models.dialogs import Dialog
@@ -32,4 +33,8 @@ class BaseDialogsRepository(ABC):
 
     @abstractmethod
     async def get_direct_dialog(self, user_id_1: UUID, user_id_2: UUID) -> Dialog | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_last_messages(self, dialog_ids: list[UUID]) -> dict[UUID, tuple[str, datetime]]:
         raise NotImplementedError
