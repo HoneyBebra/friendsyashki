@@ -274,6 +274,10 @@ function connectWs() {
   ws.onmessage = function (ev) {
     try {
       const data = JSON.parse(ev.data);
+      if (data.event === 'ping') {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send('pong');
+        return;
+      }
       if (data.event === 'new_message' && data.payload) {
         if (data.payload.dialog_id === currentDialogId) appendMessage(data.payload);
         updateDialogPreview(data.payload);

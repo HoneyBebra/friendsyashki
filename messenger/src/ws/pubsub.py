@@ -88,14 +88,42 @@ class RedisPubSub:
         self._subscriber = None
         logger.info("Redis Pub/Sub stopped")
 
+    async def _ensure_publisher(self) -> aioredis.Redis | None:
+        """Return a healthy publisher connection, reconnecting if needed."""
+        if self._publisher is not None:
+            try:
+                await self._publisher.ping()
+                return self._publisher
+            except (RedisConnectionError, RedisError, OSError, TimeoutError):
+                logger.warning("Publisher ping failed, reconnecting...")
+                try:
+                    await self._publisher.aclose()
+                except (RedisError, OSError):
+                    pass
+
+        try:
+            publisher = aioredis.from_url(
+                self._redis_url,
+                decode_responses=False,
+            )
+            await publisher.ping()
+            self._publisher = publisher
+            logger.info("Redis publisher reconnected")
+            return self._publisher
+        except (RedisConnectionError, RedisError, OSError, TimeoutError) as e:
+            logger.error("Redis publisher reconnect failed: %s", e)
+            self._publisher = None
+            return None
+
     async def publish(
         self,
         user_ids: list[UUID],
         payload: dict,
     ) -> None:
         """Publish message to Redis channel for all workers."""
-        if self._publisher is None:
-            logger.warning("Redis publisher not initialized, falling back to local")
+        publisher = await self._ensure_publisher()
+        if publisher is None:
+            logger.warning("Redis publisher unavailable, falling back to local")
             await self._manager.local_broadcast_to_users(user_ids, payload)
             return
 
@@ -106,7 +134,7 @@ class RedisPubSub:
             }
         )
         try:
-            await self._publisher.publish(CHANNEL_NAME, message)
+            await publisher.publish(CHANNEL_NAME, message)
         except (
             RedisConnectionError,
             RedisError,
@@ -114,31 +142,47 @@ class RedisPubSub:
             TimeoutError,
         ) as e:
             logger.error(
-                "Failed to publish to Redis, " "falling back to local: %s",
+                "Failed to publish to Redis, falling back to local: %s",
                 e,
             )
             await self._manager.local_broadcast_to_users(user_ids, payload)
 
+    async def _reconnect_subscriber(self) -> None:
+        """Close and recreate the subscriber Redis connection."""
+        if self._subscriber is not None:
+            try:
+                await self._subscriber.aclose()
+            except (RedisError, OSError):
+                pass
+        self._subscriber = aioredis.from_url(
+            self._redis_url,
+            decode_responses=False,
+        )
+
     async def _listen(self) -> None:
         """Listen to Redis channel and broadcast to local WS."""
-        backoff = 1.0
-        max_backoff = 30.0
+        backoff = 0.5
+        max_backoff = 5.0
         while True:
             if self._subscriber is None:
                 return
             try:
                 await self._subscribe_and_process()
-                backoff = 1.0  # reset on clean exit
+                backoff = 0.5
             except asyncio.CancelledError:
                 raise
             except Exception as e:  # noqa: BLE001
                 logger.error(
-                    "Redis subscriber error, reconnecting in %.0fs: %s",
+                    "Redis subscriber error, reconnecting in %.1fs: %s",
                     backoff,
                     e,
                 )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, max_backoff)
+                try:
+                    await self._reconnect_subscriber()
+                except (RedisError, OSError) as re_err:
+                    logger.error("Subscriber reconnect failed: %s", re_err)
 
     async def _subscribe_and_process(self) -> None:
         """Subscribe to channel and process incoming messages."""

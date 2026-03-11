@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = []
 
     max_ws_connections_per_user: int = 5
+    ws_heartbeat_interval: int = 30
 
     log_level: str = "info"
 

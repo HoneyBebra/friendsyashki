@@ -470,6 +470,18 @@ Debug-уровень логирования может раскрывать чу
 
 ### 34.2 Сейчас сообщения часто приходят без обновления страницы, но иногда всё-таки не доходят, также иногда проходит больше 10 секунд с момента отправки на одном устройстве до момента, как сообщение отобразится на другом устройстве. В файле issue-34.2.txt логи, в которых я проводил тесты
 
+**Корневые причины:**
+1. Gateway nginx (`deploy/infra/configs/nginx_gateway/site.conf`) не имел `proxy_read_timeout` / `proxy_send_timeout` для WebSocket-location. Дефолт nginx — 60с, после чего idle-соединение молча разрывалось. Внутренний nginx мессенджера имел `proxy_read_timeout 86400`, а gateway — нет.
+2. Отсутствие серверного heartbeat (ping/pong) — без периодических пингов idle-соединения убивались прокси, сервер продолжал считать их живыми и отправлял в «мёртвые» сокеты.
+3. Redis Pub/Sub subscriber при обрыве связи использовал экспоненциальный backoff до 30с — потеря сообщений на время переподключения.
+
+**Исправление:**
+- **`deploy/infra/configs/nginx_gateway/site.conf`:** Добавлены `proxy_read_timeout 86400`, `proxy_send_timeout 86400` и `proxy_set_header Host $host` в WebSocket location `/messenger/ws`. Соединения больше не разрываются по таймауту.
+- **`messenger/src/ws/router.py`:** Добавлен серверный heartbeat — фоновая задача `_heartbeat()` каждые 30с (настраивается через `ws_heartbeat_interval`) отправляет `{"event": "ping"}`. Клиент отвечает `"pong"`. При недоступности сокета heartbeat завершается, мёртвое соединение обнаруживается быстро. Добавлена корректная очистка heartbeat-задачи в `finally`.
+- **`messenger/src/core/config.py`:** Добавлена настройка `ws_heartbeat_interval: int = 30`.
+- **`messenger/src/ws/pubsub.py`:** (1) Метод `_ensure_publisher()` проверяет здоровье publisher-соединения перед каждой публикацией и автоматически переподключается при обрыве. (2) Метод `_reconnect_subscriber()` пересоздаёт subscriber Redis-клиент при ошибках. (3) Backoff уменьшен с 30с до 5с (начальный 0.5с).
+- **`web/index.html`:** Клиент обрабатывает событие `ping` и отвечает `"pong"` для поддержания heartbeat.
+
 ---
 
 ## Приоритетные действия
