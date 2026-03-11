@@ -216,10 +216,10 @@ function formatApiError(data, fallbackStatus) {
   if (data?.detail != null) {
     const d = data.detail;
     if (Array.isArray(d)) {
-      const messages = d.map(function (item) {
+      const messages = [...new Set(d.map(function (item) {
         const msg = item?.msg ?? item?.message;
         return typeof msg === 'string' ? msg.replace(/^Value error,\s*/i, '') : '';
-      }).filter(Boolean);
+      }).filter(Boolean))];
       return messages.length ? messages.join(' • ') : (data?.message || 'Ошибка ' + fallbackStatus);
     }
     return typeof d === 'string' ? d : (data?.message || 'Ошибка ' + fallbackStatus);

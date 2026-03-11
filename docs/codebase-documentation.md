@@ -53,7 +53,7 @@
 
 **Текущее состояние:**
 - `auth` — полностью реализован
-- `messenger` — БД + модели + репозитории + auth dependency + dialogs + messages endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅, TASK-006 ✅, TASK-007 ✅), в разработке (TASK-008..011)
+- `messenger` — БД + модели + репозитории + auth dependency + dialogs + messages endpoints (TASK-001 ✅, TASK-002 ✅, TASK-003 ✅, TASK-004 ✅, TASK-005 ✅, TASK-006 ✅, TASK-007 ✅, TASK-008 ✅, TASK-009 ✅, TASK-010 ✅, TASK-011 ✅)
 - `web` — минимальный веб-клиент для ручного тестирования (TASK-UI-001 ✅)
 
 ---
@@ -602,6 +602,9 @@ alembic downgrade -1
 **Конфигурация:**
 - `deploy/infra/configs/nginx_gateway/site.conf` — location `/web/` с alias `/data/web/`
 - `deploy/docker-compose.infra.yml` — volume `../web:/data/web:ro`
+
+**Обработка ошибок:**
+- `formatApiError()` — парсит `detail` из ответа API (массив ошибок Pydantic v2); удаляет префикс `Value error, `; дедуплицирует через `Set` (TASK-011); склеивает через ` • `
 
 **Безопасность:**
 - XSS-защита через DOM-based escaping (`textContent` → `innerHTML`)
