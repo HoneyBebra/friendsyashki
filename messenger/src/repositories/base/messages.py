@@ -61,3 +61,15 @@ class BaseMessagesRepository(ABC):
         Возвращает статус или None если не изменили.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    async def set_read_if_not_read(
+        self,
+        message_id: UUID,
+        user_id: UUID,
+    ) -> MessageStatus | None:
+        """Проставить read для участника; только если текущий статус sent/delivered.
+
+        Возвращает статус или None если уже read.
+        """
+        raise NotImplementedError

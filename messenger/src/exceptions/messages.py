@@ -24,3 +24,11 @@ class DialogNotFoundError(Exception):
     def __init__(self, dialog_id: UUID) -> None:
         self.dialog_id = dialog_id
         super().__init__(f"Dialog '{dialog_id}' not found")
+
+
+class MessageNotFoundError(Exception):
+    """Raised when the message does not exist."""
+
+    def __init__(self, message_id: UUID) -> None:
+        self.message_id = message_id
+        super().__init__(f"Message '{message_id}' not found")

@@ -20,3 +20,8 @@ class MessageResponse(BaseModel):
 
 class MessagesListResponse(BaseModel):
     messages: list[MessageResponse]
+
+
+class MessageReadResponse(BaseModel):
+    message_id: uuid.UUID
+    status: str

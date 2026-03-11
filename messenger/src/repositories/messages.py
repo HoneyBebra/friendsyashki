@@ -121,3 +121,31 @@ class MessagesRepository(BaseMessagesRepository):
         if row is not None:
             await self.session.refresh(row)
         return row
+
+    async def set_read_if_not_read(
+        self,
+        message_id: UUID,
+        user_id: UUID,
+    ) -> MessageStatus | None:
+        stmt = (
+            pg_insert(MessageStatus)
+            .values(
+                message_id=message_id,
+                user_id=user_id,
+                status=MessageStatusEnum.READ,
+            )
+            .on_conflict_do_update(
+                constraint="uq_message_status_message_user",
+                set_={"status": MessageStatusEnum.READ},
+                where=MessageStatus.status.in_(
+                    [MessageStatusEnum.SENT, MessageStatusEnum.DELIVERED]
+                ),
+            )
+            .returning(MessageStatus)
+        )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        await self.session.commit()
+        if row is not None:
+            await self.session.refresh(row)
+        return row

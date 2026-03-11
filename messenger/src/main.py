@@ -9,6 +9,7 @@ from fastapi.responses import ORJSONResponse
 from src.api.v1.dialogs import router as dialogs_router
 from src.api.v1.health import router as health_router
 from src.api.v1.messages import router as messages_router
+from src.api.v1.statuses import router as statuses_router
 from src.core.config import settings
 from src.core.logger import LOGGING
 from src.db.postgres import engine
@@ -58,6 +59,7 @@ router = APIRouter(prefix=settings.api_v1_prefix)
 router.include_router(health_router)
 router.include_router(dialogs_router)
 router.include_router(messages_router)
+router.include_router(statuses_router)
 app.include_router(router)
 app.include_router(ws_router, prefix="/messenger")
 

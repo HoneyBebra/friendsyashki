@@ -68,7 +68,10 @@ input::placeholder{color:var(--text2)}
 .msg{max-width:75%;padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word;white-space:pre-wrap}
 .msg.mine{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .msg.theirs{align-self:flex-start;background:var(--surface);border-bottom-left-radius:4px}
-.msg .time{font-size:.7rem;opacity:.6;margin-top:3px}
+.msg .time{font-size:.7rem;opacity:.6;margin-top:3px;display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.msg.theirs .time{justify-content:flex-start}
+.msg .status{font-size:.65rem;letter-spacing:-1px}
+.msg .status.read{color:var(--accent2)}
 .compose{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg2)}
 .compose textarea{flex:1;font:inherit;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);outline:none;resize:none;overflow-y:auto;max-height:120px;line-height:1.4;transition:border-color .15s;min-height:40px}
 .compose textarea:focus{border-color:var(--accent)}
@@ -279,10 +282,17 @@ function connectWs() {
         return;
       }
       if (data.event === 'new_message' && data.payload) {
-        if (data.payload.dialog_id === currentDialogId) appendMessage(data.payload);
+        if (data.payload.dialog_id === currentDialogId) {
+          appendMessage(data.payload);
+          if (data.payload.sender_login !== currentUserLogin) {
+            markMessageAsRead(data.payload.id);
+          }
+        }
         updateDialogPreview(data.payload);
       } else if (data.event === 'new_dialog' && data.payload) {
         addOrUpdateDialog(data.payload);
+      } else if (data.event === 'message_read' && data.payload) {
+        updateMessageStatus(data.payload.message_id, 'read');
       }
     } catch (e) { console.error('WS message error:', e); }
   };
@@ -301,6 +311,20 @@ function connectWs() {
   };
 }
 
+function markMessageAsRead(messageId) {
+  if (!messageId) return;
+  api('/messenger/api/v1/messages/' + messageId + '/read', { method: 'POST' }).catch(function () {});
+}
+
+function updateMessageStatus(messageId, status) {
+  const el = document.querySelector('[data-message-id="' + messageId + '"] .status');
+  if (!el) return;
+  if (status === 'read') {
+    el.textContent = '\u2713\u2713';
+    el.classList.add('read');
+  }
+}
+
 function appendMessage(m) {
   if (!currentDialogId || m.dialog_id !== currentDialogId) return;
   const container = document.getElementById('messages');
@@ -310,7 +334,8 @@ function appendMessage(m) {
   const mine = m.sender_login === currentUserLogin;
   el.className = 'msg ' + (mine ? 'mine' : 'theirs');
   const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-  el.innerHTML = esc(m.text) + '<div class="time">' + t + '</div>';
+  const statusHtml = mine ? '<span class="status">\u2713</span>' : '';
+  el.innerHTML = esc(m.text) + '<div class="time">' + t + statusHtml + '</div>';
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
 }
@@ -417,16 +442,20 @@ async function loadMessages() {
   const msgs = data.messages || [];
   const container = document.getElementById('messages');
   container.innerHTML = '';
+  const theirIds = [];
   msgs.forEach(m => {
     const el = document.createElement('div');
     if (m.id) el.dataset.messageId = m.id;
     const mine = (m.sender_login !== undefined && m.sender_login === currentUserLogin) || m.sender_id === currentUserId;
     el.className = 'msg ' + (mine ? 'mine' : 'theirs');
     const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    el.innerHTML = `${esc(m.text)}<div class="time">${t}</div>`;
+    const statusHtml = mine ? '<span class="status">\u2713</span>' : '';
+    el.innerHTML = `${esc(m.text)}<div class="time">${t}${statusHtml}</div>`;
     container.appendChild(el);
+    if (!mine && m.id) theirIds.push(m.id);
   });
   container.scrollTop = container.scrollHeight;
+  theirIds.forEach(id => markMessageAsRead(id));
 }
 
 let sendQueue = Promise.resolve();

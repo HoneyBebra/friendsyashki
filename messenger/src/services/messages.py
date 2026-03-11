@@ -3,8 +3,10 @@ from uuid import UUID
 from src.exceptions.messages import (
     ClientMessageIdConflictError,
     DialogNotFoundError,
+    MessageNotFoundError,
     NotDialogParticipantError,
 )
+from src.models.message_statuses import MessageStatus
 from src.models.messages import Message
 from src.repositories.dialogs import DialogsRepository
 from src.repositories.messages import MessagesRepository
@@ -68,3 +70,28 @@ class MessagesService:
             limit=limit,
             offset=offset,
         )
+
+    async def mark_as_read(
+        self,
+        message_id: UUID,
+        user_id: UUID,
+    ) -> tuple[MessageStatus | None, list[UUID]]:
+        """Пометить сообщение как прочитанное.
+
+        Возвращает (status, participant_ids).
+        status=None означает, что сообщение уже было прочитано (идемпотентность).
+        """
+        message = await self.messages_repository.get_by_id(message_id)
+        if message is None:
+            raise MessageNotFoundError(message_id)
+
+        dialog = await self.dialogs_repository.get_by_id(message.dialog_id)
+        if dialog is None:
+            raise DialogNotFoundError(message.dialog_id)
+
+        participant_ids = {p.user_id for p in dialog.participants}
+        if user_id not in participant_ids:
+            raise NotDialogParticipantError(user_id, message.dialog_id)
+
+        status = await self.messages_repository.set_read_if_not_read(message_id, user_id)
+        return status, list(participant_ids)

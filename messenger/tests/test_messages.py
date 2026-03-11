@@ -262,3 +262,114 @@ async def test_get_messages_dialog_not_found(db_client: AsyncClient) -> None:
         )
 
     assert resp.status_code == 404
+
+
+# ─── POST /messages/{id}/read ───
+
+
+def _read_endpoint(message_id: str) -> str:
+    return f"/messenger/api/v1/messages/{message_id}/read"
+
+
+@pytest.mark.asyncio
+async def test_mark_message_as_read(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    msg = await _send_message(db_client, dialog_id, user_a, "Read me", f"read-{uuid4()}")
+
+    mock_get_token = AsyncMock(return_value=user_b)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.post(
+            _read_endpoint(msg["id"]),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["message_id"] == msg["id"]
+    assert data["status"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_mark_message_as_read_idempotent(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    msg = await _send_message(db_client, dialog_id, user_a, "Read twice", f"read2-{uuid4()}")
+
+    mock_get_token = AsyncMock(return_value=user_b)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp1 = await db_client.post(
+            _read_endpoint(msg["id"]),
+            cookies={"access_token": "valid-token"},
+        )
+        resp2 = await db_client.post(
+            _read_endpoint(msg["id"]),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp1.status_code == 200
+    assert resp2.status_code == 200
+    assert resp1.json()["status"] == "read"
+    assert resp2.json()["status"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_mark_message_as_read_not_participant(db_client: AsyncClient) -> None:
+    user_a = uuid4()
+    user_b = uuid4()
+    outsider = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    msg = await _send_message(db_client, dialog_id, user_a, "Secret", f"outsider-{uuid4()}")
+
+    mock_get_token = AsyncMock(return_value=outsider)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.post(
+            _read_endpoint(msg["id"]),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 403
+    assert "participant" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_mark_message_as_read_not_found(db_client: AsyncClient) -> None:
+    fake_msg_id = str(uuid4())
+
+    mock_get_token = AsyncMock(return_value=uuid4())
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.post(
+            _read_endpoint(fake_msg_id),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_sender_can_see_read_status(db_client: AsyncClient) -> None:
+    """Отправитель также может отметить своё сообщение как прочитанное."""
+    user_a = uuid4()
+    user_b = uuid4()
+    dialog = await _create_dialog(db_client, user_a, user_b)
+    dialog_id = dialog["id"]
+
+    msg = await _send_message(db_client, dialog_id, user_a, "Self read", f"self-{uuid4()}")
+
+    mock_get_token = AsyncMock(return_value=user_a)
+    with patch("src.dependencies.auth.get_user_id_by_token", mock_get_token):
+        resp = await db_client.post(
+            _read_endpoint(msg["id"]),
+            cookies={"access_token": "valid-token"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "read"
