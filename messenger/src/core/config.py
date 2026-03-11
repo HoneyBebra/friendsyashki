@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     auth_grpc_tls_cert: str = "/opt/app/certs/grpc/client.pem"
     auth_grpc_tls_key: str = "/opt/app/certs/grpc/client.key"
 
+    redis_host: str = "redis_messenger"
+    redis_port: int = 6379
+    redis_password: str = ""
+
     cors_origins: list[str] = []
 
     max_ws_connections_per_user: int = 5
@@ -51,6 +55,12 @@ class Settings(BaseSettings):
             f"{self.postgres_port}/"
             f"{self.postgres_db}"
         )
+
+    @property
+    def redis_url(self) -> str:
+        if self.redis_password:
+            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/0"
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
 
 
 @lru_cache

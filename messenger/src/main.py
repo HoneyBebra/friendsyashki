@@ -13,13 +13,25 @@ from src.core.config import settings
 from src.core.logger import LOGGING
 from src.db.postgres import engine
 from src.gRPC.client import close_auth_grpc_channel, open_auth_grpc_channel
+from src.ws.manager import ws_manager
+from src.ws.pubsub import RedisPubSub
 from src.ws.router import router as ws_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await open_auth_grpc_channel()
+
+    pubsub = RedisPubSub(
+        redis_url=settings.redis_url,
+        manager=ws_manager,
+    )
+    ws_manager.set_pubsub(pubsub)
+    await pubsub.start()
+
     yield
+
+    await pubsub.stop()
     await close_auth_grpc_channel()
     await engine.dispose()
 

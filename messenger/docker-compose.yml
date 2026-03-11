@@ -8,6 +8,7 @@ services:
     build: .
     depends_on:
       - postgres_messenger
+      - redis_messenger
     volumes:
       - ./migration/versions:/opt/app/migration/versions
       - ../deploy/certs/grpc/ca.pem:/opt/app/certs/grpc/ca.pem:ro
@@ -23,6 +24,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./infra/volumes/postgres_messenger:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis_messenger:
+    image: redis:7.4.1
+    container_name: redis_messenger
+    command:
+      redis-server --protected-mode yes --requirepass "${REDIS_PASSWORD}"
+    env_file:
+      - .env
     restart: unless-stopped
 
   nginx_messenger:

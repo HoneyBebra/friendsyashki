@@ -11,3 +11,4 @@ asyncpg==0.30.0
 greenlet==3.2.3
 grpcio>=1.78.0
 grpcio-tools>=1.78.0
+redis[hiredis]>=5.0.0

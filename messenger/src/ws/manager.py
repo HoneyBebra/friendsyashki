@@ -1,12 +1,18 @@
 """Менеджер активных WebSocket-соединений по user_id."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import WebSocket
 
 from src.core.config import settings
+
+if TYPE_CHECKING:
+    from src.ws.pubsub import RedisPubSub
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +23,11 @@ class ConnectionManager:
     def __init__(self) -> None:
         self._connections: dict[UUID, list[WebSocket]] = {}
         self._locks: dict[WebSocket, asyncio.Lock] = {}
+        self._pubsub: RedisPubSub | None = None
+
+    def set_pubsub(self, pubsub: RedisPubSub) -> None:
+        """Привязать Redis Pub/Sub для межворкерной рассылки."""
+        self._pubsub = pubsub
 
     def register(self, user_id: UUID, websocket: WebSocket) -> list[WebSocket]:
         """Регистрирует соединение.
@@ -85,7 +96,21 @@ class ConnectionManager:
         user_ids: list[UUID],
         payload: dict,
     ) -> None:
-        """Отправить payload всем подключённым сокетам указанных пользователей."""
+        """Отправить payload всем воркерам через Redis Pub/Sub.
+
+        Если Redis Pub/Sub не настроен, отправляет только локально.
+        """
+        if self._pubsub is not None:
+            await self._pubsub.publish(user_ids, payload)
+        else:
+            await self.local_broadcast_to_users(user_ids, payload)
+
+    async def local_broadcast_to_users(
+        self,
+        user_ids: list[UUID],
+        payload: dict,
+    ) -> None:
+        """Отправить payload локальным WebSocket-соединениям указанных пользователей."""
         await asyncio.gather(
             *(self._send_to_user(uid, payload) for uid in user_ids),
         )
