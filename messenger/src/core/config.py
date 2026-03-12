@@ -1,0 +1,74 @@
+from functools import lru_cache
+from logging import config as logging_config
+from pathlib import Path
+
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.core.logger import LOGGING
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).parent.parent.parent
+ENV_FILE = BASE_DIR / ".env"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=ENV_FILE)
+
+    api_v1_prefix: str = "/messenger/api/v1"
+
+    app_name: str
+    app_description: str
+    app_version: str
+
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    postgres_host: str
+    postgres_port: str
+    postgres_echo: bool = False
+
+    auth_grpc_host: str = "auth"
+    auth_grpc_port: int = 50051
+    auth_grpc_tls_ca: str = "/opt/app/certs/grpc/ca.pem"
+    auth_grpc_tls_cert: str = "/opt/app/certs/grpc/client.pem"
+    auth_grpc_tls_key: str = "/opt/app/certs/grpc/client.key"
+
+    redis_host: str = "redis_messenger"
+    redis_port: int = 6379
+    redis_password: str = ""
+
+    cors_origins: list[str] = []
+
+    max_ws_connections_per_user: int = 5
+    ws_heartbeat_interval: int = 30
+
+    log_level: str = "info"
+
+    @property
+    def postgres_dsn(self) -> str:
+        return (
+            f"postgresql+asyncpg://"
+            f"{self.postgres_user}:"
+            f"{self.postgres_password}@"
+            f"{self.postgres_host}:"
+            f"{self.postgres_port}/"
+            f"{self.postgres_db}"
+        )
+
+    @property
+    def redis_url(self) -> str:
+        if self.redis_password:
+            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/0"
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
+
+
+settings = get_settings()
+
+logging_config.dictConfig(LOGGING)

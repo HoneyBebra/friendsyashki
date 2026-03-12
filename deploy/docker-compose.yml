@@ -1,0 +1,4 @@
+include:
+  - ../auth/docker-compose.yml
+  - ../messenger/docker-compose.yml
+  - docker-compose.infra.yml

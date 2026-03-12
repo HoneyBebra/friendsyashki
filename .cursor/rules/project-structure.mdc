@@ -1,0 +1,137 @@
+---
+description: Всегда, когда тебе нужно найти что-то в проекте или продумать структуру файлов и папок
+alwaysApply: false
+---
+# Структура проекта Friendsyashki
+
+Монорепозиторий. Каждый сервис — отдельная папка со своим `Dockerfile`, `requirements.txt`, `src/` и конфигами.
+
+```
+friendsyashki/
+├── PRD.md                        # Продуктовые требования
+├── tickets.md                    # Задачи и тест-планы
+├── README.md
+├── ruff.toml                     # Единый конфиг линтера (line-length=100)
+├── setup.cfg                     # Конфиг mypy (python 3.12, strict types)
+├── requirements-dev.txt          # Dev-зависимости (pytest, httpx, pre-commit и т.д.)
+│
+├── auth/                         # Сервис аутентификации (реализован)
+│   ├── Dockerfile
+│   ├── docker-compose.yml        # Локальный запуск auth + зависимостей
+│   ├── alembic.ini
+│   ├── requirements.txt
+│   ├── migration/                # Alembic-миграции
+│   │   ├── env.py
+│   │   ├── script.py.mako
+│   │   └── versions/
+│   ├── infra/
+│   │   └── configs/
+│   │       ├── nginx_auth/       # nginx.conf + site.conf для auth
+│   │       └── redis/            # redis.conf
+│   └── src/
+│       ├── main.py               # Точка входа FastAPI + gRPC сервер
+│       ├── api/
+│       │   └── v1/
+│       │       └── users.py      # REST: signup, login, me, refresh, logout
+│       ├── core/
+│       │   ├── config.py         # Pydantic-настройки из env
+│       │   └── logger.py
+│       ├── db/
+│       │   ├── postgres.py       # SQLAlchemy async engine/session
+│       │   └── redis.py          # Redis клиент (blacklist токенов)
+│       ├── dependencies/
+│       │   └── jwt.py            # FastAPI-зависимости для валидации JWT
+│       ├── exceptions/
+│       │   ├── jwt.py
+│       │   └── users.py
+│       ├── gRPC/
+│       │   ├── server.py         # gRPC-сервер (GetUserInfoByToken)
+│       │   └── protos/
+│       │       ├── user.proto
+│       │       ├── user_pb2.py
+│       │       └── user_pb2_grpc.py
+│       ├── models/
+│       │   ├── base.py
+│       │   └── users.py          # SQLAlchemy-модель User
+│       ├── repositories/
+│       │   ├── users.py
+│       │   ├── jwt_token.py
+│       │   └── base/             # Абстрактные базовые классы репозиториев
+│       │       ├── users.py
+│       │       └── jwt_token.py
+│       ├── schemas/
+│       │   └── v1/
+│       │       ├── base.py
+│       │       ├── users.py      # Pydantic v2 схемы пользователей
+│       │       └── jwt.py
+│       ├── services/
+│       │   └── users.py          # Бизнес-логика auth
+│       └── utils/
+│           ├── encryption.py     # Шифрование/хеширование email, phone
+│           └── jwt.py            # Работа с JWT-токенами
+│
+├── messenger/                    # Сервис мессенджера (в разработке — MVP)
+│   │                             # Структура аналогична auth/
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── alembic.ini
+│   ├── requirements.txt
+│   ├── migration/
+│   │   └── versions/
+│   ├── infra/
+│   │   └── configs/
+│   └── src/
+│       ├── main.py
+│       ├── api/
+│       │   └── v1/               # REST: dialogs, messages, statuses
+│       ├── core/
+│       ├── db/
+│       │   ├── postgres.py
+│       │   └── redis.py          # Presence, ephemeral-state, pub/sub
+│       ├── dependencies/
+│       ├── exceptions/
+│       ├── gRPC/                 # gRPC-клиент для валидации токена через auth
+│       ├── models/               # dialogs, dialog_participants, messages, message_statuses
+│       ├── repositories/
+│       ├── schemas/
+│       ├── services/
+│       ├── utils/
+│       └── ws/                   # WebSocket gateway (realtime события)
+│
+└── deploy/                       # Единый оркестратор всех сервисов
+    ├── docker-compose.yml        # Запуск всех сервисов (auth + messenger + инфра)
+    ├── docker-compose.infra.yml  # Только инфраструктура (Postgres, Redis, Kafka, Nginx)
+    └── infra/
+        └── configs/
+            └── nginx_gateway/    # Nginx reverse proxy для всего проекта
+                ├── nginx.conf
+                └── site.conf
+```
+
+## Ключевые принципы структуры
+
+- **Слои внутри каждого `src/`:** `api` → `dependencies` → `services` → `repositories` → `models/db`. Каждый слой знает только о нижестоящем.
+- **Схемы:** Pydantic v2, папка `schemas/v1/` — версионирование с самого начала.
+- **Репозитории:** абстрактный базовый класс в `repositories/base/`, конкретная реализация рядом.
+- **gRPC:** в `auth` — сервер (`GetUserInfoByToken`); в `messenger` — клиент для валидации access token.
+- **Миграции:** Alembic, папка `migration/versions/` внутри каждого сервиса.
+- **Инфра:** локальный `docker-compose.yml` у каждого сервиса для изолированной разработки; `deploy/` — единая точка запуска всего стека.
+
+## Технологический стек
+
+| Компонент       | Технология                                |
+|-----------------|-------------------------------------------|
+| API             | FastAPI (REST + WebSocket)                |
+| ORM / миграции  | SQLAlchemy (async) + Alembic              |
+| Валидация       | Pydantic v2                               |
+| БД              | PostgreSQL                                |
+| Кэш / очереди   | Redis                                     |
+| Брокер          | Kafka                                     |
+| Межсервисный RPC| gRPC                                      |
+| Фоновые задачи  | Celery/RQ + Redis                         |
+| Proxy           | Nginx                                     |
+| Метрики         | Prometheus + Grafana                      |
+| Хранилище файлов| S3-compatible (MinIO local / managed prod)|
+| Тесты           | pytest + pytest-asyncio + httpx           |
+| Линтер          | ruff + mypy                               |
+| Pre-commit      | ruff, ruff-format, yaml/eof/whitespace    |

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messenger</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:rgb(17,17,22);--bg2:rgb(24,24,32);--bg3:rgb(32,32,42);
+  --surface:rgb(40,40,54);--surface2:rgb(50,50,66);
+  --border:rgb(55,55,72);--text:rgb(228,228,240);--text2:rgb(160,160,180);
+  --accent:rgb(99,102,241);--accent2:rgb(129,140,248);
+  --danger:rgb(239,68,68);--success:rgb(34,197,94);
+  --radius:10px;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+button{cursor:pointer;font:inherit;border:none;border-radius:var(--radius);padding:8px 18px;background:var(--accent);color:#fff;transition:background .15s}
+button:hover{background:var(--accent2)}
+button.secondary{background:var(--surface2)}
+button.secondary:hover{background:var(--border)}
+button.danger{background:var(--danger)}
+input{font:inherit;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);outline:none;width:100%;transition:border-color .15s}
+input:focus{border-color:var(--accent)}
+input::placeholder{color:var(--text2)}
+
+/* Auth */
+#auth-screen{display:flex;align-items:center;justify-content:center;height:100%;padding:20px}
+.auth-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:400px}
+.auth-card h2{margin-bottom:6px;font-size:1.5rem}
+.auth-card p{color:var(--text2);margin-bottom:24px;font-size:.9rem}
+.auth-card .field{margin-bottom:14px}
+.auth-card .field label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.auth-card .actions{display:flex;gap:10px;margin-top:20px}
+.auth-card .actions button{flex:1}
+.auth-card .switch{text-align:center;margin-top:18px;font-size:.85rem;color:var(--text2)}
+.auth-card .switch a{color:var(--accent2);cursor:pointer;text-decoration:none}
+.auth-card .switch a:hover{text-decoration:underline}
+.error-msg{color:var(--danger);font-size:.85rem;margin-top:8px;min-height:1.2em}
+
+/* App */
+#app-screen{display:none;height:100%;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.topbar .user-info{flex:1;font-size:.9rem;color:var(--text2)}
+.topbar .user-info strong{color:var(--text)}
+
+.main{display:flex;flex:1;min-height:0;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:300px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar-header{padding:14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.sidebar-header .row{display:flex;gap:8px}
+.sidebar-header input{flex:1}
+.sidebar-header button{white-space:nowrap;font-size:.85rem;padding:8px 14px}
+.dialog-list{flex:1;overflow-y:auto;padding:6px}
+.dialog-item{padding:12px 14px;border-radius:var(--radius);cursor:pointer;transition:background .12s;font-size:.9rem;color:var(--text2)}
+.dialog-item:hover{background:var(--bg3)}
+.dialog-item.active{background:var(--surface);color:var(--text)}
+.dialog-item .title{font-weight:600;color:var(--text);margin-bottom:2px}
+.dialog-item .meta{font-size:.75rem}
+
+/* Chat */
+.chat{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+#chat-active{min-height:0}
+.chat-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px}
+.chat-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:.95rem}
+.messages{flex:1;min-height:0;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.msg{max-width:75%;padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word;white-space:pre-wrap}
+.msg.mine{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.theirs{align-self:flex-start;background:var(--surface);border-bottom-left-radius:4px}
+.msg .time{font-size:.7rem;opacity:.6;margin-top:3px;display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.msg.theirs .time{justify-content:flex-start}
+.msg .status{font-size:.65rem;letter-spacing:-1px}
+.msg .status.read{color:var(--accent2)}
+.compose{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg2)}
+.compose textarea{flex:1;font:inherit;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);outline:none;resize:none;overflow-y:auto;max-height:120px;line-height:1.4;transition:border-color .15s;min-height:40px}
+.compose textarea:focus{border-color:var(--accent)}
+.compose textarea::placeholder{color:var(--text2)}
+.compose button{padding:10px 22px;align-self:flex-end}
+
+/* Responsive */
+@media(max-width:700px){
+  .sidebar{width:100%;position:absolute;z-index:10;height:100%}
+  .sidebar.hidden{display:none}
+  .chat-header .back-btn{display:inline-flex}
+}
+@media(min-width:701px){
+  .chat-header .back-btn{display:none}
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-card" id="login-form">
+    <h2>Вход</h2>
+    <p>Войдите в свой аккаунт</p>
+    <div class="field"><label>Email</label><input id="login-email" type="email" placeholder="email@example.com"></div>
+    <div class="field"><label>Пароль</label><input id="login-password" type="password" placeholder="••••••••"></div>
+    <div class="error-msg" id="login-error"></div>
+    <div class="actions"><button onclick="doLogin()">Войти</button></div>
+    <div class="switch">Нет аккаунта? <a onclick="showSignup()">Зарегистрироваться</a></div>
+  </div>
+
+  <div class="auth-card" id="signup-form" style="display:none">
+    <h2>Регистрация</h2>
+    <p>Создайте новый аккаунт</p>
+    <div class="field"><label>Логин</label><input id="signup-login" placeholder="my_login"></div>
+    <div class="field"><label>Email (опционально)</label><input id="signup-email" type="email" placeholder="email@example.com"></div>
+    <div class="field"><label>Пароль</label><input id="signup-password" type="password" placeholder="••••••••"></div>
+    <div class="field"><label>Подтверждение пароля</label><input id="signup-confirm" type="password" placeholder="••••••••"></div>
+    <div class="error-msg" id="signup-error"></div>
+    <div class="actions"><button onclick="doSignup()">Создать аккаунт</button></div>
+    <div class="switch">Уже есть аккаунт? <a onclick="showLogin()">Войти</a></div>
+  </div>
+</div>
+
+<!-- App Screen -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="user-info">Вы: <strong id="user-display">—</strong></div>
+    <button class="danger" onclick="doLogout()" style="font-size:.85rem;padding:6px 14px">Выйти</button>
+  </div>
+  <div class="main">
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="row">
+          <input id="new-dialog-login" placeholder="Логин собеседника">
+          <button onclick="createDialog()">+</button>
+        </div>
+      </div>
+      <div class="dialog-list" id="dialog-list"></div>
+    </div>
+    <div class="chat" id="chat">
+      <div class="chat-placeholder" id="chat-placeholder">Выберите диалог</div>
+      <div id="chat-active" style="display:none;flex-direction:column;flex:1">
+        <div class="chat-header">
+          <button class="secondary back-btn" onclick="closeChatMobile()">←</button>
+          <span id="chat-title">—</span>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div class="compose">
+          <textarea id="msg-input" placeholder="Сообщение…" rows="1" onkeydown="handleMsgKeydown(event)" oninput="autoResizeTextarea(this)"></textarea>
+          <button onclick="sendMessage()">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentUserId = null;
+let currentUserLogin = null;
+let currentDialogId = null;
+let dialogs = [];
+let ws = null;
+let wsReconnectTimer = null;
+let wsIsReconnect = false;
+
+function resetAppState() {
+  if (ws) try { ws.close(); } catch (e) {}
+  ws = null;
+  if (wsReconnectTimer !== null) {
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = null;
+  }
+  currentUserId = null;
+  currentUserLogin = null;
+  currentDialogId = null;
+  dialogs = [];
+  sendQueue = Promise.resolve();
+  wsIsReconnect = false;
+  document.getElementById('dialog-list').innerHTML = '';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('chat-active').style.display = 'none';
+  document.getElementById('chat-placeholder').style.display = '';
+  document.getElementById('chat-title').textContent = '—';
+  document.getElementById('user-display').textContent = '—';
+  document.getElementById('new-dialog-login').value = '';
+  document.getElementById('msg-input').value = '';
+  document.getElementById('sidebar').classList.remove('hidden');
+}
+
+function showLogin() {
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('login-form').style.display = '';
+}
+function showSignup() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('signup-form').style.display = '';
+}
+
+async function api(url, opts = {}) {
+  opts.credentials = 'include';
+  if (opts.body && typeof opts.body === 'object') {
+    opts.body = JSON.stringify(opts.body);
+    opts.headers = { ...opts.headers, 'Content-Type': 'application/json' };
+  }
+  let res = await fetch(url, opts);
+  if (res.status === 403) {
+    const ref = await fetch('/auth/api/v1/users/refresh', { method: 'POST', credentials: 'include' });
+    if (ref.ok) {
+      res = await fetch(url, opts);
+    }
+  }
+  return res;
+}
+
+function formatApiError(data, fallbackStatus) {
+  if (data?.detail != null) {
+    const d = data.detail;
+    if (Array.isArray(d)) {
+      const messages = [...new Set(d.map(function (item) {
+        const msg = item?.msg ?? item?.message;
+        return typeof msg === 'string' ? msg.replace(/^Value error,\s*/i, '') : '';
+      }).filter(Boolean))];
+      return messages.length ? messages.join(' • ') : (data?.message || 'Ошибка ' + fallbackStatus);
+    }
+    return typeof d === 'string' ? d : (data?.message || 'Ошибка ' + fallbackStatus);
+  }
+  return data?.message || 'Ошибка ' + fallbackStatus;
+}
+
+async function doSignup() {
+  const login = document.getElementById('signup-login').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirm = document.getElementById('signup-confirm').value;
+  const errEl = document.getElementById('signup-error');
+  errEl.textContent = '';
+  if (!login || !password) { errEl.textContent = 'Заполните логин и пароль'; return; }
+  if (password !== confirm) { errEl.textContent = 'Пароли не совпадают'; return; }
+  const body = { login, password, confirm_password: confirm };
+  if (email) body.email = email;
+  const res = await api('/auth/api/v1/users/signup', { method: 'POST', body });
+  if (res.status === 204 || res.ok) {
+    await enterApp();
+  } else {
+    const data = await res.json().catch(() => null);
+    errEl.textContent = formatApiError(data, res.status);
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Заполните все поля'; return; }
+  const res = await api('/auth/api/v1/users/login', { method: 'POST', body: { email, password } });
+  if (res.status === 204 || res.ok) {
+    await enterApp();
+  } else {
+    const data = await res.json().catch(() => null);
+    errEl.textContent = formatApiError(data, res.status);
+  }
+}
+
+async function doLogout() {
+  await api('/auth/api/v1/users/logout', { method: 'POST' });
+  resetAppState();
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = proto + '//' + location.host + '/messenger/ws';
+  if (ws) try { ws.close(); } catch (e) {}
+  ws = new WebSocket(url);
+  ws.onmessage = function (ev) {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.event === 'ping') {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send('pong');
+        return;
+      }
+      if (data.event === 'new_message' && data.payload) {
+        if (data.payload.dialog_id === currentDialogId) {
+          appendMessage(data.payload);
+          if (data.payload.sender_login !== currentUserLogin) {
+            markMessageAsRead(data.payload.id);
+          }
+        }
+        updateDialogPreview(data.payload);
+      } else if (data.event === 'new_dialog' && data.payload) {
+        addOrUpdateDialog(data.payload);
+      } else if (data.event === 'message_read' && data.payload) {
+        updateMessageStatus(data.payload.message_id, 'read');
+      }
+    } catch (e) { console.error('WS message error:', e); }
+  };
+  ws.onopen = function () {
+    if (wsIsReconnect) {
+      loadDialogs();
+      if (currentDialogId) loadMessages();
+    }
+    wsIsReconnect = true;
+  };
+  ws.onclose = function () {
+    ws = null;
+    if (currentUserId && wsReconnectTimer === null) {
+      wsReconnectTimer = setTimeout(function () { wsReconnectTimer = null; connectWs(); }, 2000);
+    }
+  };
+}
+
+function markMessageAsRead(messageId) {
+  if (!messageId) return;
+  api('/messenger/api/v1/messages/' + messageId + '/read', { method: 'POST' }).catch(function () {});
+}
+
+function updateMessageStatus(messageId, status) {
+  const el = document.querySelector('[data-message-id="' + messageId + '"] .status');
+  if (!el) return;
+  if (status === 'read') {
+    el.textContent = '\u2713\u2713';
+    el.classList.add('read');
+  }
+}
+
+function appendMessage(m) {
+  if (!currentDialogId || m.dialog_id !== currentDialogId) return;
+  const container = document.getElementById('messages');
+  if (m.id && container.querySelector('[data-message-id="' + m.id + '"]')) return;
+  const el = document.createElement('div');
+  if (m.id) el.dataset.messageId = m.id;
+  const mine = m.sender_login === currentUserLogin;
+  el.className = 'msg ' + (mine ? 'mine' : 'theirs');
+  const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const statusHtml = mine ? '<span class="status">\u2713</span>' : '';
+  el.innerHTML = esc(m.text) + '<div class="time">' + t + statusHtml + '</div>';
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateDialogPreview(message) {
+  const idx = dialogs.findIndex(d => d.id === message.dialog_id);
+  if (idx !== -1) {
+    dialogs[idx].last_message_text = message.text;
+    dialogs[idx].last_message_at = message.created_at;
+    if (idx > 0) {
+      const [moved] = dialogs.splice(idx, 1);
+      dialogs.unshift(moved);
+    }
+    renderDialogs();
+  } else {
+    loadDialogs();
+  }
+}
+
+function addOrUpdateDialog(dialogData) {
+  const idx = dialogs.findIndex(d => d.id === dialogData.id);
+  if (idx === -1) {
+    dialogs.unshift(dialogData);
+    renderDialogs();
+  }
+}
+
+async function enterApp() {
+  resetAppState();
+  const res = await api('/auth/api/v1/users/me');
+  if (!res.ok) return;
+  const data = await res.json();
+  currentUserId = data.id;
+  currentUserLogin = data.login || null;
+  document.getElementById('user-display').textContent = data.login || data.id;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  connectWs();
+  await loadDialogs();
+}
+
+async function loadDialogs() {
+  const res = await api('/messenger/api/v1/dialogs');
+  if (!res.ok) return;
+  const data = await res.json();
+  dialogs = data.dialogs || [];
+  renderDialogs();
+}
+
+function renderDialogs() {
+  const list = document.getElementById('dialog-list');
+  list.innerHTML = '';
+  dialogs.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'dialog-item' + (d.id === currentDialogId ? ' active' : '');
+    const title = d.title || d.participants?.map(p => p.login).filter(login => login && login !== currentUserLogin).join(', ') || d.id.slice(0, 8);
+    const lastTime = d.last_message_at ? new Date(d.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const preview = d.last_message_text ? (d.last_message_text.length > 40 ? d.last_message_text.slice(0, 40) + '…' : d.last_message_text) : '';
+    el.innerHTML = `<div class="title">${esc(title)}<span style="float:right;font-weight:400;font-size:.75rem;color:var(--text2)">${esc(lastTime)}</span></div><div class="meta">${esc(preview)}</div>`;
+    el.onclick = () => openDialog(d);
+    list.appendChild(el);
+  });
+}
+
+async function createDialog() {
+  const input = document.getElementById('new-dialog-login');
+  const login = input.value.trim();
+  if (!login) return;
+  const res = await api('/messenger/api/v1/dialogs/direct', { method: 'POST', body: { target_login: login } });
+  if (res.ok) {
+    const data = await res.json().catch(() => null);
+    input.value = '';
+    await loadDialogs();
+    if (data?.id) {
+      const d = dialogs.find(x => x.id === data.id) || data;
+      openDialog(d);
+    }
+  } else {
+    const data = await res.json().catch(() => null);
+    alert(data?.detail || `Ошибка ${res.status}`);
+  }
+}
+
+async function openDialog(d) {
+  currentDialogId = d.id;
+  renderDialogs();
+  document.getElementById('chat-placeholder').style.display = 'none';
+  document.getElementById('chat-active').style.display = 'flex';
+  const title = d.title || d.participants?.map(p => p.login).filter(login => login && login !== currentUserLogin).join(', ') || d.id.slice(0, 8);
+  document.getElementById('chat-title').textContent = title;
+  document.getElementById('sidebar').classList.add('hidden');
+  await loadMessages();
+}
+
+function closeChatMobile() {
+  document.getElementById('sidebar').classList.remove('hidden');
+}
+
+async function loadMessages() {
+  if (!currentDialogId) return;
+  const res = await api(`/messenger/api/v1/dialogs/${currentDialogId}/messages?limit=50&offset=0`);
+  if (!res.ok) return;
+  const data = await res.json();
+  const msgs = data.messages || [];
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  const theirIds = [];
+  msgs.forEach(m => {
+    const el = document.createElement('div');
+    if (m.id) el.dataset.messageId = m.id;
+    const mine = (m.sender_login !== undefined && m.sender_login === currentUserLogin) || m.sender_id === currentUserId;
+    el.className = 'msg ' + (mine ? 'mine' : 'theirs');
+    const t = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const statusHtml = mine ? '<span class="status">\u2713</span>' : '';
+    el.innerHTML = `${esc(m.text)}<div class="time">${t}${statusHtml}</div>`;
+    container.appendChild(el);
+    if (!mine && m.id) theirIds.push(m.id);
+  });
+  container.scrollTop = container.scrollHeight;
+  theirIds.forEach(id => markMessageAsRead(id));
+}
+
+let sendQueue = Promise.resolve();
+
+function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || !currentDialogId) return;
+  input.value = '';
+  input.style.height = 'auto';
+  const dialogId = currentDialogId;
+  const clientId = crypto.randomUUID();
+  sendQueue = sendQueue.then(async function () {
+    try {
+      const res = await api('/messenger/api/v1/dialogs/' + dialogId + '/messages', {
+        method: 'POST',
+        body: { text: text, client_message_id: clientId }
+      });
+      if (res.ok || res.status === 201) {
+        const data = res.json ? await res.json().catch(function () { return null; }) : null;
+        if (data && currentDialogId === dialogId) appendMessage(data);
+      }
+    } catch (e) { /* сетевая ошибка — сообщение не отправлено */ }
+  });
+}
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || ('ontouchstart' in window && window.innerWidth <= 700);
+}
+
+function handleMsgKeydown(event) {
+  if (event.key !== 'Enter') return;
+  if (isMobileDevice()) return;
+  if (event.shiftKey) return;
+  event.preventDefault();
+  sendMessage();
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+(async () => {
+  try {
+    const res = await fetch('/auth/api/v1/users/me', { credentials: 'include' });
+    if (res.ok) await enterApp();
+  } catch (e) { console.error('Auto-login failed:', e); }
+})();
+</script>
+</body>
+</html>

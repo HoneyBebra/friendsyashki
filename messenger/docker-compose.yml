@@ -1,0 +1,47 @@
+services:
+  messenger:
+    image: messenger
+    container_name: messenger
+    restart: always
+    env_file:
+      - .env
+    build: .
+    depends_on:
+      - postgres_messenger
+      - redis_messenger
+    volumes:
+      - ./migration/versions:/opt/app/migration/versions
+      - ../deploy/certs/grpc/ca.pem:/opt/app/certs/grpc/ca.pem:ro
+      - ../deploy/certs/grpc/client.pem:/opt/app/certs/grpc/client.pem:ro
+      - ../deploy/certs/grpc/client.key:/opt/app/certs/grpc/client.key:ro
+
+  postgres_messenger:
+    image: postgres:17.4
+    container_name: postgres_messenger
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./infra/volumes/postgres_messenger:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis_messenger:
+    image: redis:7.4.1
+    container_name: redis_messenger
+    command:
+      redis-server --protected-mode yes --requirepass "${REDIS_PASSWORD}"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  nginx_messenger:
+    container_name: nginx_messenger
+    image: nginx:1.25.5
+    restart: always
+    depends_on:
+      - messenger
+    volumes:
+      - ./infra/configs/nginx_messenger/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/configs/nginx_messenger/site.conf:/etc/nginx/conf.d/site.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro

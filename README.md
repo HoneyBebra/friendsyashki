@@ -1,1 +1,7 @@
 # A messenger written full using vibe-coding. I'm learning to vibe
+
+# Deploy
+```shell
+cd deploy
+docker compose up -d --build
+```

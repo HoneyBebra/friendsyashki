@@ -1,0 +1,97 @@
+from datetime import datetime
+from uuid import UUID
+
+from fastapi import Depends
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
+
+from src.db.postgres import get_session
+from src.models.dialog_participants import DialogParticipant
+from src.models.dialogs import Dialog, DialogType
+from src.models.messages import Message
+from src.repositories.base.dialogs import BaseDialogsRepository
+
+
+class DialogsRepository(BaseDialogsRepository):
+    def __init__(self, session: AsyncSession = Depends(get_session)) -> None:
+        self.session = session
+
+    async def create(self, dialog_type: str, title: str | None = None) -> Dialog:
+        dialog = Dialog(type=DialogType(dialog_type), title=title)
+        self.session.add(dialog)
+        await self.session.commit()
+        await self.session.refresh(dialog)
+        return dialog
+
+    async def create_with_participants(
+        self,
+        dialog_type: str,
+        participant_ids: list[UUID],
+        title: str | None = None,
+    ) -> Dialog:
+        dialog = Dialog(type=DialogType(dialog_type), title=title)
+        self.session.add(dialog)
+        await self.session.flush()
+        for uid in participant_ids:
+            self.session.add(DialogParticipant(dialog_id=dialog.id, user_id=uid))
+        await self.session.commit()
+        await self.session.refresh(
+            dialog,
+            attribute_names=["id", "type", "title", "created_at", "participants"],
+        )
+        return dialog
+
+    async def get_by_id(self, dialog_id: UUID) -> Dialog | None:
+        result = await self.session.execute(select(Dialog).where(Dialog.id == dialog_id))
+        return result.scalar_one_or_none()
+
+    async def get_user_dialogs(self, user_id: UUID) -> list[Dialog]:
+        result = await self.session.execute(
+            select(Dialog)
+            .join(DialogParticipant)
+            .where(DialogParticipant.user_id == user_id)
+            .order_by(Dialog.updated_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def add_participant(self, dialog_id: UUID, user_id: UUID) -> None:
+        participant = DialogParticipant(dialog_id=dialog_id, user_id=user_id)
+        self.session.add(participant)
+        await self.session.commit()
+
+    async def get_direct_dialog(self, user_id_1: UUID, user_id_2: UUID) -> Dialog | None:
+        p1 = aliased(DialogParticipant)
+        p2 = aliased(DialogParticipant)
+        result = await self.session.execute(
+            select(Dialog)
+            .join(p1, Dialog.id == p1.dialog_id)
+            .join(p2, Dialog.id == p2.dialog_id)
+            .where(
+                Dialog.type == DialogType.DIRECT,
+                p1.user_id == user_id_1,
+                p2.user_id == user_id_2,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_last_messages(self, dialog_ids: list[UUID]) -> dict[UUID, tuple[str, datetime]]:
+        """Получить текст и время последнего сообщения для каждого диалога."""
+        if not dialog_ids:
+            return {}
+
+        row_num = (
+            func.row_number()
+            .over(partition_by=Message.dialog_id, order_by=Message.created_at.desc())
+            .label("rn")
+        )
+        subq = (
+            select(Message.dialog_id, Message.text, Message.created_at, row_num)
+            .where(Message.dialog_id.in_(dialog_ids))
+            .subquery()
+        )
+        result = await self.session.execute(
+            select(subq.c.dialog_id, subq.c.text, subq.c.created_at).where(subq.c.rn == 1)
+        )
+
+        return {row.dialog_id: (row.text, row.created_at) for row in result.all()}

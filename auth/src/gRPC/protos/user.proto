@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+
+message GetUserInfoByTokenRequest {
+  string access_token = 1;
+}
+
+message GetUserInfoByTokenResponse {
+    string id = 1;
+    string login = 2;
+}
+
+
+message GetUserByLoginRequest {
+  string login = 1;
+}
+
+message GetUserByLoginResponse {
+  string id = 1;
+  string login = 2;
+}
+
+message GetUserByIdRequest {
+  string id = 1;
+}
+
+message GetUserByIdResponse {
+  string id = 1;
+  string login = 2;
+}
+
+
+service User {
+  rpc GetUserInfoByToken (GetUserInfoByTokenRequest) returns (GetUserInfoByTokenResponse) {}
+  rpc GetUserByLogin (GetUserByLoginRequest) returns (GetUserByLoginResponse) {}
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdResponse) {}
+}
